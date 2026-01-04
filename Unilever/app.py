@@ -1,9 +1,18 @@
+# NUCLEAR OPTION - FORCE NEW DATA
 import streamlit as st
+import sys
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
+
+# CLEAR EVERYTHING
 st.cache_data.clear()
+st.cache_resource.clear()
+
+# Force Python to reload modules
+if 'generate_market_data' in sys.modules:
+    del sys.modules['generate_market_data']
 
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="UniGrain Connect Prototype")
@@ -11,6 +20,7 @@ st.set_page_config(layout="wide", page_title="UniGrain Connect Prototype")
 # --- 1. DATA GENERATION FUNCTIONS ---
 
 
+@st.cache_data
 @st.cache_data
 def generate_market_data(days=365 * 3):
     """Simulates fluctuating daily wheat prices for key regions."""
@@ -21,44 +31,71 @@ def generate_market_data(days=365 * 3):
     regions = ['Karachi (Sindh)', 'Multan (Punjab)', 'Faisalabad (Punjab)', 'Sukkur (Sindh)']
     
     data = []
-    base_price = 100
     np.random.seed(42) 
     
     for date in dates:
         for region in regions:
-            volatility_multiplier = 1.0
-            if 'Sindh' in region:
-                volatility_multiplier = 1.5 
+            # Base price with regional differences
+            base_prices = {
+                'Karachi (Sindh)': 103,
+                'Multan (Punjab)': 98,
+                'Faisalabad (Punjab)': 101,
+                'Sukkur (Sindh)': 99
+            }
             
-            price_offset = {'Karachi (Sindh)': 3, 'Multan (Punjab)': -2, 'Faisalabad (Punjab)': 1, 'Sukkur (Sindh)': -1}[region]
+            base_price = base_prices[region]
             
-            # FIXED: Proper seasonal pattern - LOW in harvest, HIGH in lean
-            day_of_year = date.timetuple().tm_yday
+            # SIMPLE SEASONAL PATTERN THAT WORKS:
+            # Harvest (April-May): LOW prices ~90-95
+            # Lean (Oct-Dec): HIGH prices ~110-115
+            month = date.month
+            if month in [3, 4, 5]:  # Harvest months
+                seasonal_discount = -8  # Make prices LOWER
+            elif month in [10, 11, 12]:  # Lean months
+                seasonal_discount = 8  # Make prices HIGHER
+            else:
+                seasonal_discount = 0
             
-            # Harvest = April-May (days 90-150) = LOW prices (~90-95 PKR)
-            # Lean = Oct-Dec (days 270-365) = HIGH prices (~110-115 PKR)
-            # Using cosine: -10 means lowest at day 135 (May), highest at day 315 (Nov)
-            seasonal_factor = -10 * np.cos((day_of_year - 135) * 2 * np.pi / 365)
+            # Add some random noise
+            noise = np.random.normal(0, 2)
             
-            noise = np.random.normal(0, 1) * volatility_multiplier
+            # Calculate final price
+            price = base_price + seasonal_discount + noise
             
-            # Slight upward trend over years
-            trend = 0.05 * (date - start_date).days / 365
-            
-            price = base_price + price_offset + seasonal_factor + noise + trend
-            
-            # Ensure prices stay in realistic range
-            price = max(80, min(130, price))  # Between 80-130 PKR/kg
+            # Ensure realistic range
+            price = max(85, min(125, price))
             
             data.append({
                 'Date': date,
                 'Region': region,
                 'Mandi_Price_PKR_per_Kg': round(price, 2),
-                'Volatility_Index': round(abs(noise) + abs(seasonal_factor * 0.1), 2)
+                'Volatility_Index': round(abs(noise), 2)
             })
             
     df = pd.DataFrame(data)
     return df
+    # --- Data Generation (Run once) ---
+df_market = generate_market_data()
+df_suppliers = generate_supplier_data()
+df_tenders = generate_tender_history(df_market, df_suppliers)
+
+# DEBUG: Show actual prices
+st.sidebar.markdown("### 🔍 DEBUG Price Check")
+st.sidebar.write(f"Total records: {len(df_market)}")
+
+# Check harvest vs lean prices
+harvest_months = [3, 4, 5]
+lean_months = [10, 11, 12]
+
+harvest_prices = df_market[df_market['Date'].dt.month.isin(harvest_months)]['Mandi_Price_PKR_per_Kg']
+lean_prices = df_market[df_market['Date'].dt.month.isin(lean_months)]['Mandi_Price_PKR_per_Kg']
+
+st.sidebar.write(f"Harvest (Mar-May) avg: {harvest_prices.mean():.2f} PKR/kg")
+st.sidebar.write(f"Lean (Oct-Dec) avg: {lean_prices.mean():.2f} PKR/kg")
+st.sidebar.write(f"Price spread: {(lean_prices.mean() - harvest_prices.mean()):.2f} PKR/kg")
+
+current_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-1].round(2)
+historical_avg = df_market['Mandi_Price_PKR_per_Kg'].mean().round(2)
     
 @st.cache_data
 def generate_supplier_data(num_suppliers=50):
@@ -736,5 +773,6 @@ if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
+
 
 
