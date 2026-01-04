@@ -195,9 +195,19 @@ def generate_mill_data():
     
     mill_types = ['Commercial', 'Medium Modern', 'Cooperative', 'Mega Mill']
     
+    # Pakistan city coordinates
+    city_coords = {
+        'Multan': {'lat': 30.1575, 'lon': 71.5249},
+        'Lahore': {'lat': 31.5497, 'lon': 74.3436},
+        'Faisalabad': {'lat': 31.4180, 'lon': 73.0790},
+        'Karachi': {'lat': 24.8607, 'lon': 67.0011},
+        'Sukkur': {'lat': 27.7052, 'lon': 68.8574}
+    }
+    
     data = []
     for i in range(1, 31):
         mill_type = random.choice(mill_types)
+        location = random.choice(list(city_coords.keys()))
         
         if mill_type == 'Commercial':
             capacity = random.randint(200, 500)
@@ -212,10 +222,16 @@ def generate_mill_data():
             capacity = random.randint(400, 600)
             quality = random.uniform(3.8, 4.5)
         
+        # Add some random variation to coordinates
+        lat = city_coords[location]['lat'] + random.uniform(-0.1, 0.1)
+        lon = city_coords[location]['lon'] + random.uniform(-0.1, 0.1)
+        
         data.append({
             'Mill_ID': f'MILL{i:03d}',
             'Mill_Name': f'{mill_type} Mill {i}',
-            'Location': random.choice(['Multan', 'Lahore', 'Faisalabad', 'Karachi', 'Sukkur']),
+            'Location': location,
+            'lat': lat,
+            'lon': lon,
             'Mill_Type': mill_type,
             'Capacity_TPD': capacity,
             'Quality_Rating': round(quality, 1),
@@ -1079,12 +1095,9 @@ def page_farmer_integration():
 def page_toll_processing_management():
     """Toll Processing Management Platform"""
     st.title("🤝 Toll Processing Management")
-    st.markdown("### Manage Network of Partner Mills (Model 2)")
+    st.markdown("### Manage Network of Partner Mills")
     
-    # Generate mill data
-    df_mills = generate_mill_data()
-    
-    # Dashboard
+    # Dashboard metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -1106,144 +1119,387 @@ def page_toll_processing_management():
     ])
     
     with tab_overview:
-        # Interactive mill map
-        st.map(df_mills)
+        # Generate mill data
+        df_mills = generate_mill_data()
         
-        # Mill list with filters
+        # Mill map with proper coordinates
+        st.markdown("##### 📍 Mill Locations")
+        try:
+            # Filter out any null coordinates
+            map_df = df_mills[['lat', 'lon', 'Mill_Name', 'Location']].dropna()
+            if not map_df.empty:
+                st.map(map_df, use_container_width=True)
+            else:
+                st.info("No location data available for mapping")
+        except Exception as e:
+            st.warning(f"Map display issue: {e}")
+            # Show a simple table instead
+            st.info("Mill Locations:")
+            for _, mill in df_mills.iterrows():
+                st.write(f"📍 **{mill['Mill_Name']}** - {mill['Location']}")
+        
+        st.markdown("---")
+        
+        # Mill filters
+        st.markdown("##### 🔍 Filter Mills")
         col_filter1, col_filter2, col_filter3 = st.columns(3)
         
         with col_filter1:
-            location_filter = st.multiselect("Location", df_mills['Location'].unique())
+            location_filter = st.multiselect(
+                "Location", 
+                df_mills['Location'].unique(),
+                placeholder="All locations"
+            )
         with col_filter2:
-            capacity_filter = st.slider("Min Capacity (TPD)", 50, 500, 100)
+            capacity_filter = st.slider("Min Capacity (TPD)", 50, 500, 100, 10)
         with col_filter3:
-            rating_filter = st.slider("Min Quality Rating", 3.0, 5.0, 3.5)
+            rating_filter = st.slider("Min Quality Rating", 3.0, 5.0, 3.5, 0.1)
         
-        filtered_mills = df_mills[
-            (df_mills['Location'].isin(location_filter) if location_filter else True) &
-            (df_mills['Capacity_TPD'] >= capacity_filter) &
-            (df_mills['Quality_Rating'] >= rating_filter)
-        ]
+        # Apply filters
+        filtered_mills = df_mills.copy()
+        if location_filter:
+            filtered_mills = filtered_mills[filtered_mills['Location'].isin(location_filter)]
+        filtered_mills = filtered_mills[filtered_mills['Capacity_TPD'] >= capacity_filter]
+        filtered_mills = filtered_mills[filtered_mills['Quality_Rating'] >= rating_filter]
         
-        st.dataframe(
-            filtered_mills[['Mill_ID', 'Mill_Name', 'Location', 'Capacity_TPD', 
-                           'Quality_Rating', 'On_Contract', 'Last_Audit']],
-            use_container_width=True,
-            hide_index=True
-        )
+        st.markdown(f"**Found {len(filtered_mills)} mills matching criteria**")
+        
+        # Display mills in a nice table
+        if not filtered_mills.empty:
+            display_columns = ['Mill_Name', 'Location', 'Capacity_TPD', 
+                              'Quality_Rating', 'Processing_Fee', 'On_Contract']
+            
+            # Format the table
+            display_df = filtered_mills[display_columns].copy()
+            display_df = display_df.rename(columns={
+                'Mill_Name': 'Mill Name',
+                'Capacity_TPD': 'Capacity (TPD)',
+                'Quality_Rating': 'Quality',
+                'Processing_Fee': 'Fee (PKR/ton)',
+                'On_Contract': 'On Contract'
+            })
+            
+            # Add color to quality column
+            def color_quality(val):
+                if val >= 4.5:
+                    return 'color: green; font-weight: bold'
+                elif val >= 4.0:
+                    return 'color: blue'
+                elif val >= 3.5:
+                    return 'color: orange'
+                else:
+                    return 'color: red'
+            
+            styled_df = display_df.style.applymap(color_quality, subset=['Quality'])
+            
+            st.dataframe(
+                styled_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Quality": st.column_config.ProgressColumn(
+                        "Quality",
+                        min_value=0,
+                        max_value=5,
+                        format="%.1f"
+                    ),
+                    "On Contract": st.column_config.CheckboxColumn("On Contract")
+                }
+            )
+            
+            # Quick actions
+            st.markdown("##### ⚡ Quick Actions")
+            selected_mill = st.selectbox(
+                "Select a mill for action:",
+                filtered_mills['Mill_Name'].tolist()
+            )
+            
+            col_action1, col_action2, col_action3 = st.columns(3)
+            with col_action1:
+                if st.button("📞 Contact", use_container_width=True):
+                    mill_info = filtered_mills[filtered_mills['Mill_Name'] == selected_mill].iloc[0]
+                    st.success(f"Contacting {mill_info['Contact_Person']} at {mill_info['Phone']}")
+            with col_action2:
+                if st.button("📋 Request Quote", use_container_width=True):
+                    st.info(f"Quote request sent to {selected_mill}")
+            with col_action3:
+                if st.button("📊 View Details", use_container_width=True):
+                    mill_info = filtered_mills[filtered_mills['Mill_Name'] == selected_mill].iloc[0]
+                    with st.expander(f"Details for {selected_mill}", expanded=True):
+                        st.write(f"**Mill ID:** {mill_info['Mill_ID']}")
+                        st.write(f"**Type:** {mill_info['Mill_Type']}")
+                        st.write(f"**Location:** {mill_info['Location']}")
+                        st.write(f"**Capacity:** {mill_info['Capacity_TPD']} TPD")
+                        st.write(f"**Quality Rating:** {mill_info['Quality_Rating']}/5.0")
+                        st.write(f"**Processing Fee:** PKR {mill_info['Processing_Fee']}/ton")
+                        st.write(f"**Last Audit:** {mill_info['Last_Audit']}")
+                        st.write(f"**Contact:** {mill_info['Contact_Person']} - {mill_info['Phone']}")
+        else:
+            st.warning("No mills found with the selected filters. Try adjusting your criteria.")
     
     with tab_quality:
-        st.subheader("Quality Compliance Tracking")
+        st.subheader("🔬 Quality Control Dashboard")
         
-        # Quality metrics
-        quality_data = {
-            'Parameter': ['Extraction Rate', 'Ash Content', 'Moisture', 'Protein', 'Contamination'],
-            'Target': ['≥71%', '≤0.48%', '≤12%', '≥11.5%', '0%'],
-            'Avg Performance': ['70.8%', '0.46%', '11.2%', '11.7%', '0.1%'],
-            'Compliance Rate': ['92%', '96%', '98%', '94%', '99%']
-        }
+        col_qc1, col_qc2 = st.columns(2)
         
-        st.dataframe(pd.DataFrame(quality_data), hide_index=True)
+        with col_qc1:
+            st.markdown("##### Quality Metrics")
+            quality_data = {
+                'Parameter': ['Extraction Rate', 'Ash Content', 'Moisture', 'Protein'],
+                'Target': ['≥71%', '≤0.48%', '≤12%', '≥11.5%'],
+                'Avg Performance': ['70.8%', '0.46%', '11.2%', '11.7%'],
+                'Compliance Rate': ['92%', '96%', '98%', '94%']
+            }
+            
+            df_quality = pd.DataFrame(quality_data)
+            
+            # Add visual indicators
+            def highlight_compliance(val):
+                try:
+                    compliance = float(val.replace('%', ''))
+                    if compliance >= 95:
+                        return 'background-color: #d4edda; color: #155724;'
+                    elif compliance >= 90:
+                        return 'background-color: #fff3cd; color: #856404;'
+                    else:
+                        return 'background-color: #f8d7da; color: #721c24;'
+                except:
+                    return ''
+            
+            styled_df = df_quality.style.applymap(
+                highlight_compliance, 
+                subset=['Compliance Rate']
+            )
+            
+            st.dataframe(styled_df, hide_index=True, use_container_width=True)
         
-        # Quality alerts
-        st.subheader("⚠️ Quality Alerts")
-        
-        alerts = [
-            {"Mill": "Millers Co. 005", "Issue": "Extraction rate 68%", "Status": "Warning"},
-            {"Mill": "Millers Co. 012", "Issue": "Moisture 13.2%", "Status": "Critical"},
-            {"Mill": "Millers Co. 008", "Issue": "Ash content 0.52%", "Status": "Warning"}
-        ]
-        
-        for alert in alerts:
-            col_alert1, col_alert2, col_alert3 = st.columns([3, 2, 1])
-            with col_alert1:
-                st.write(f"**{alert['Mill']}**")
-            with col_alert2:
-                st.write(alert['Issue'])
-            with col_alert3:
-                if alert['Status'] == 'Critical':
-                    st.error("Critical")
-                else:
-                    st.warning("Warning")
+        with col_qc2:
+            st.markdown("##### Recent Quality Tests")
+            
+            test_results = [
+                {"Batch": "B20240615", "Mill": "Millers Co. 001", "Protein": "11.8%", "Status": "✅ Pass"},
+                {"Batch": "B20240616", "Mill": "Millers Co. 002", "Protein": "11.3%", "Status": "✅ Pass"},
+                {"Batch": "B20240617", "Mill": "Millers Co. 005", "Protein": "10.8%", "Status": "❌ Fail"},
+                {"Batch": "B20240618", "Mill": "Millers Co. 003", "Protein": "11.9%", "Status": "✅ Pass"},
+                {"Batch": "B20240619", "Mill": "Millers Co. 008", "Protein": "11.2%", "Status": "⚠️ Warning"},
+            ]
+            
+            for test in test_results:
+                col1, col2, col3, col4 = st.columns([2, 3, 2, 1])
+                with col1:
+                    st.write(f"**{test['Batch']}**")
+                with col2:
+                    st.write(test['Mill'])
+                with col3:
+                    st.write(f"Protein: {test['Protein']}")
+                with col4:
+                    if test['Status'] == '✅ Pass':
+                        st.success("Pass")
+                    elif test['Status'] == '❌ Fail':
+                        st.error("Fail")
+                    else:
+                        st.warning("Warning")
+            
+            # Quality trend chart
+            st.markdown("##### Quality Trend - Last 30 Batches")
+            
+            trend_data = {
+                'Batch': list(range(1, 31)),
+                'Protein': [random.uniform(11.0, 12.0) for _ in range(30)],
+                'Target': [11.5] * 30
+            }
+            
+            df_trend = pd.DataFrame(trend_data)
+            st.line_chart(df_trend.set_index('Batch')[['Protein', 'Target']])
     
     with tab_financial:
-        st.subheader("Financial Performance")
+        st.subheader("💰 Financial Performance")
         
         # Cost comparison
+        st.markdown("##### Cost Comparison Across Mills")
+        
         cost_data = {
-            'Mill': ['Millers Co. 001', 'Millers Co. 002', 'Millers Co. 003', 'Market Average'],
-            'Processing Fee (PKR/ton)': [1000, 1050, 950, 1200],
-            'Transport Cost (PKR/ton)': [150, 200, 180, 250],
-            'Total Cost (PKR/ton)': [1150, 1250, 1130, 1450],
-            'Savings vs Market': [300, 200, 320, 0]
+            'Mill': ['Millers Co. 001', 'Millers Co. 002', 'Millers Co. 003', 'Millers Co. 004', 'Market Average'],
+            'Processing Fee': [1000, 1050, 950, 1100, 1200],
+            'Transport Cost': [150, 200, 180, 170, 250],
+            'Quality Bonus': [-50, 0, 100, -20, 0],
+            'Total Cost': [1100, 1250, 1130, 1250, 1450],
+            'Savings vs Market': [350, 200, 320, 200, 0]
         }
         
-        st.dataframe(pd.DataFrame(cost_data), hide_index=True)
+        df_costs = pd.DataFrame(cost_data)
         
-        # Batch payment tracker
-        st.subheader("Batch Payment Tracker")
+        # Highlight best option
+        def highlight_best(val):
+            if val == df_costs['Total Cost'].min() and val != 1450:
+                return 'background-color: #d4edda; font-weight: bold;'
+            return ''
+        
+        styled_costs = df_costs.style.applymap(
+            highlight_best, 
+            subset=['Total Cost']
+        )
+        
+        st.dataframe(styled_costs, hide_index=True, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Payment tracker
+        st.markdown("##### 💸 Batch Payment Tracker")
         
         payments = [
             {"Batch_ID": "B202406001", "Mill": "Millers Co. 001", "Tons": 100, 
-             "Fee": "PKR 100,000", "Status": "Paid", "Due_Date": "2024-06-15"},
+             "Fee": "PKR 100,000", "Status": "✅ Paid", "Date": "2024-06-15"},
             {"Batch_ID": "B202406002", "Mill": "Millers Co. 002", "Tons": 150, 
-             "Fee": "PKR 157,500", "Status": "Pending", "Due_Date": "2024-06-20"},
+             "Fee": "PKR 157,500", "Status": "⏳ Pending", "Date": "2024-06-20"},
             {"Batch_ID": "B202406003", "Mill": "Millers Co. 003", "Tons": 80, 
-             "Fee": "PKR 76,000", "Status": "Quality Hold", "Due_Date": "2024-06-18"}
+             "Fee": "PKR 76,000", "Status": "⚠️ Quality Hold", "Date": "2024-06-18"},
+            {"Batch_ID": "B202406004", "Mill": "Millers Co. 001", "Tons": 120, 
+             "Fee": "PKR 120,000", "Status": "✅ Paid", "Date": "2024-06-22"},
         ]
         
         for payment in payments:
-            col_pay1, col_pay2, col_pay3, col_pay4, col_pay5 = st.columns(5)
-            with col_pay1:
-                st.write(f"**{payment['Batch_ID']}**")
-            with col_pay2:
-                st.write(payment['Mill'])
-            with col_pay3:
-                st.write(payment['Fee'])
-            with col_pay4:
-                if payment['Status'] == 'Paid':
-                    st.success("Paid")
-                elif payment['Status'] == 'Quality Hold':
-                    st.warning("On Hold")
-                else:
-                    st.info("Pending")
-            with col_pay5:
-                if st.button("Process", key=f"pay_{payment['Batch_ID']}"):
-                    st.success(f"Payment processed for {payment['Batch_ID']}")
+            with st.container():
+                col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 2])
+                with col1:
+                    st.write(f"**{payment['Batch_ID']}**")
+                with col2:
+                    st.write(payment['Mill'])
+                with col3:
+                    st.write(f"{payment['Tons']} tons")
+                with col4:
+                    st.write(payment['Fee'])
+                with col5:
+                    if payment['Status'] == '✅ Paid':
+                        st.success("Paid")
+                    elif payment['Status'] == '⏳ Pending':
+                        st.info("Pending")
+                    else:
+                        st.warning("On Hold")
+                        if st.button("Review", key=f"review_{payment['Batch_ID']}"):
+                            st.info(f"Quality issue for {payment['Batch_ID']}. Protein was 10.8% (target 11.5%)")
+        
+        # Financial summary
+        st.markdown("---")
+        st.markdown("##### 📊 Financial Summary")
+        
+        col_sum1, col_sum2, col_sum3 = st.columns(3)
+        
+        with col_sum1:
+            st.metric("Monthly Processing", "1,500 tons", "+200 vs last month")
+        with col_sum2:
+            st.metric("Avg Cost/Ton", "PKR 1,180", "-5% vs last month")
+        with col_sum3:
+            st.metric("Total Savings", "PKR 12.5M", "Year to date")
     
     with tab_contracts:
-        st.subheader("Contract Management")
+        st.subheader("📝 Contract Management")
         
-        # Contract status
+        # Active contracts
+        st.markdown("##### Active Contracts")
+        
         contracts = [
-            {"Contract_ID": "CON001", "Mill": "Millers Co. 001", "Start_Date": "2024-01-01",
-             "End_Date": "2024-12-31", "Volume_Tons": 5000, "Status": "Active"},
-            {"Contract_ID": "CON002", "Mill": "Millers Co. 002", "Start_Date": "2024-02-01",
-             "End_Date": "2024-11-30", "Volume_Tons": 3000, "Status": "Active"},
-            {"Contract_ID": "CON003", "Mill": "Millers Co. 003", "Start_Date": "2024-03-01",
-             "End_Date": "2025-02-28", "Volume_Tons": 4000, "Status": "Active"},
-            {"Contract_ID": "CON004", "Mill": "Millers Co. 004", "Start_Date": "2023-11-01",
-             "End_Date": "2024-10-31", "Volume_Tons": 2000, "Status": "Expiring Soon"},
+            {"Contract_ID": "CON001", "Mill": "Millers Co. 001", 
+             "Start_Date": "2024-01-01", "End_Date": "2024-12-31",
+             "Volume_Tons": 5000, "Remaining_Tons": 1200, "Status": "🟢 Active"},
+            {"Contract_ID": "CON002", "Mill": "Millers Co. 002", 
+             "Start_Date": "2024-02-01", "End_Date": "2024-11-30",
+             "Volume_Tons": 3000, "Remaining_Tons": 500, "Status": "🟢 Active"},
+            {"Contract_ID": "CON003", "Mill": "Millers Co. 003", 
+             "Start_Date": "2024-03-01", "End_Date": "2025-02-28",
+             "Volume_Tons": 4000, "Remaining_Tons": 3200, "Status": "🟢 Active"},
+            {"Contract_ID": "CON004", "Mill": "Millers Co. 004", 
+             "Start_Date": "2023-11-01", "End_Date": "2024-10-31",
+             "Volume_Tons": 2000, "Remaining_Tons": 300, "Status": "🟡 Expiring Soon"},
         ]
         
         for contract in contracts:
-            with st.expander(f"Contract {contract['Contract_ID']} - {contract['Mill']}"):
+            with st.expander(f"📄 Contract {contract['Contract_ID']} - {contract['Mill']}", expanded=False):
                 col_con1, col_con2, col_con3 = st.columns(3)
                 
                 with col_con1:
                     st.write(f"**Volume:** {contract['Volume_Tons']} tons")
-                    st.write(f"**Status:** {contract['Status']}")
+                    progress = (contract['Volume_Tons'] - contract['Remaining_Tons']) / contract['Volume_Tons']
+                    st.progress(progress)
+                    st.caption(f"{contract['Remaining_Tons']} tons remaining")
                 
                 with col_con2:
-                    st.write(f"**Start:** {contract['Start_Date']}")
-                    st.write(f"**End:** {contract['End_Date']}")
+                    st.write(f"**Duration:**")
+                    st.write(f"Start: {contract['Start_Date']}")
+                    st.write(f"End: {contract['End_Date']}")
+                    
+                    # Calculate days remaining
+                    end_date = datetime.strptime(contract['End_Date'], '%Y-%m-%d')
+                    days_left = (end_date - datetime.now()).days
+                    if days_left < 30:
+                        st.warning(f"{days_left} days remaining")
+                    else:
+                        st.info(f"{days_left} days remaining")
                 
                 with col_con3:
-                    if contract['Status'] == 'Expiring Soon':
-                        if st.button("Renew", key=f"renew_{contract['Contract_ID']}"):
-                            st.success("Renewal initiated")
-                    elif st.button("View Details", key=f"view_{contract['Contract_ID']}"):
-                        st.write("Contract details would open here")
+                    status_text = contract['Status']
+                    if "🟢" in status_text:
+                        st.success("Active")
+                    elif "🟡" in status_text:
+                        st.warning("Expiring Soon")
+                    
+                    # Action buttons
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if "🟡" in status_text:
+                            if st.button("Renew", key=f"renew_{contract['Contract_ID']}", use_container_width=True):
+                                st.success(f"Renewal process started for {contract['Contract_ID']}")
+                    with col_btn2:
+                        if st.button("View", key=f"view_{contract['Contract_ID']}", use_container_width=True):
+                            st.info(f"Opening contract details for {contract['Mill']}")
+        
+        # New contract form
+        st.markdown("---")
+        st.markdown("##### 📝 Create New Contract")
+        
+        with st.form("new_contract_form"):
+            col_form1, col_form2 = st.columns(2)
+            
+            with col_form1:
+                mill_name = st.selectbox("Select Mill", ["Millers Co. 001", "Millers Co. 002", "Millers Co. 003", "New Mill"])
+                volume_tons = st.number_input("Contract Volume (Tons)", min_value=100, max_value=10000, value=1000, step=100)
+                price_per_ton = st.number_input("Price per Ton (PKR)", min_value=800, max_value=1500, value=1000)
+            
+            with col_form2:
+                start_date = st.date_input("Start Date", datetime.today())
+                duration_months = st.select_slider("Duration (Months)", options=[3, 6, 12, 24], value=12)
+                quality_bonus = st.checkbox("Include Quality Bonus", value=True)
+            
+            submitted = st.form_submit_button("Create Contract")
+            
+            if submitted:
+                contract_value = volume_tons * price_per_ton
+                st.success(f"✅ Contract created successfully!")
+                st.info(f"**Contract Value:** PKR {contract_value:,}")
+                st.info(f"**Duration:** {start_date} to {start_date + timedelta(days=duration_months*30)}")
+                
+                # Simulate approval workflow
+                st.markdown("##### 📋 Approval Workflow")
+                workflow_steps = [
+                    {"Step": "1. Contract Draft", "Status": "✅ Complete", "By": "Procurement Team"},
+                    {"Step": "2. Legal Review", "Status": "⏳ In Progress", "By": "Legal Department"},
+                    {"Step": "3. Finance Approval", "Status": "⏳ Pending", "By": "Finance Department"},
+                    {"Step": "4. Final Signing", "Status": "⏳ Pending", "By": "Director"}
+                ]
+                
+                for step in workflow_steps:
+                    col_wf1, col_wf2, col_wf3 = st.columns([2, 2, 3])
+                    with col_wf1:
+                        st.write(step["Step"])
+                    with col_wf2:
+                        if "✅" in step["Status"]:
+                            st.success("Complete")
+                        elif "⏳" in step["Status"]:
+                            st.info("In Progress")
+                        else:
+                            st.warning("Pending")
+                    with col_wf3:
+                        st.caption(step["By"])
 def page_mill_operations():
     """Mill Operations Control Tower"""
     st.title("🏭 Mill Operations Control Tower")
