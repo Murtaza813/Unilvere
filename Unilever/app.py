@@ -1,3 +1,14 @@
+# NUCLEAR FIX - FORCE NEW DATA
+import streamlit as st
+import sys
+import os
+
+# CLEAR EVERYTHING
+st.cache_data.clear()
+st.cache_resource.clear()
+
+# Force disable all caching
+os.environ['STREAMLIT_SERVER_CACHE'] = 'false'
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -596,3 +607,4 @@ if page == "Dashboard & Bidding":
     page_dashboard()
 else:
     page_supplier_network()
+
