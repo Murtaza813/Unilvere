@@ -1,29 +1,21 @@
-# NUCLEAR OPTION - FORCE NEW DATA
 import streamlit as st
-import sys
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
 
-# CLEAR EVERYTHING
-st.cache_data.clear()
-st.cache_resource.clear()
-
-# Force Python to reload modules
-if 'generate_market_data' in sys.modules:
-    del sys.modules['generate_market_data']
-
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="UniGrain Connect Prototype")
 
+# --- CLEAR CACHE ---
+st.cache_data.clear()
+st.cache_resource.clear()
+
 # --- 1. DATA GENERATION FUNCTIONS ---
 
-
-@st.cache_data
 @st.cache_data
 def generate_market_data(days=365 * 3):
-    """Simulates fluctuating daily wheat prices for key regions."""
+    """FIXED: Simulates wheat prices with correct seasonal pattern."""
     end_date = datetime.today()
     start_date = end_date - timedelta(days=days)
     dates = pd.date_range(start=start_date, end=end_date, freq='D')
@@ -31,38 +23,47 @@ def generate_market_data(days=365 * 3):
     regions = ['Karachi (Sindh)', 'Multan (Punjab)', 'Faisalabad (Punjab)', 'Sukkur (Sindh)']
     
     data = []
-    np.random.seed(42) 
+    np.random.seed(42)
     
     for date in dates:
+        month = date.month
+        day_of_year = date.timetuple().tm_yday
+        
         for region in regions:
-            # Base price with regional differences
-            base_prices = {
-                'Karachi (Sindh)': 103,
-                'Multan (Punjab)': 98,
-                'Faisalabad (Punjab)': 101,
-                'Sukkur (Sindh)': 99
-            }
+            # Regional base prices
+            if region == 'Karachi (Sindh)':
+                base_price = 103
+                volatility = 1.5
+            elif region == 'Multan (Punjab)':
+                base_price = 98
+                volatility = 1.0
+            elif region == 'Faisalabad (Punjab)':
+                base_price = 101
+                volatility = 1.0
+            else:  # Sukkur
+                base_price = 99
+                volatility = 1.5
             
-            base_price = base_prices[region]
-            
-            # SIMPLE SEASONAL PATTERN THAT WORKS:
+            # FIXED: CORRECT SEASONAL PATTERN
             # Harvest (April-May): LOW prices ~90-95
             # Lean (Oct-Dec): HIGH prices ~110-115
-            month = date.month
-            if month in [3, 4, 5]:  # Harvest months
-                seasonal_discount = -8  # Make prices LOWER
-            elif month in [10, 11, 12]:  # Lean months
-                seasonal_discount = 8  # Make prices HIGHER
+            if month in [3, 4, 5]:  # Harvest season
+                seasonal_adjustment = -8  # LOWER prices
+            elif month in [10, 11, 12]:  # Lean season
+                seasonal_adjustment = 8   # HIGHER prices
             else:
-                seasonal_discount = 0
+                seasonal_adjustment = 0
             
-            # Add some random noise
-            noise = np.random.normal(0, 2)
+            # Add some noise
+            noise = np.random.normal(0, 2) * volatility
             
-            # Calculate final price
-            price = base_price + seasonal_discount + noise
+            # Small upward trend over years
+            days_since_start = (date - start_date).days
+            trend = 0.03 * (days_since_start / 365)
             
-            # Ensure realistic range
+            price = base_price + seasonal_adjustment + noise + trend
+            
+            # Keep in realistic range
             price = max(85, min(125, price))
             
             data.append({
@@ -71,32 +72,9 @@ def generate_market_data(days=365 * 3):
                 'Mandi_Price_PKR_per_Kg': round(price, 2),
                 'Volatility_Index': round(abs(noise), 2)
             })
-            
-    df = pd.DataFrame(data)
-    return df
-    # --- Data Generation (Run once) ---
-df_market = generate_market_data()
-df_suppliers = generate_supplier_data()
-df_tenders = generate_tender_history(df_market, df_suppliers)
-
-# DEBUG: Show actual prices
-st.sidebar.markdown("### 🔍 DEBUG Price Check")
-st.sidebar.write(f"Total records: {len(df_market)}")
-
-# Check harvest vs lean prices
-harvest_months = [3, 4, 5]
-lean_months = [10, 11, 12]
-
-harvest_prices = df_market[df_market['Date'].dt.month.isin(harvest_months)]['Mandi_Price_PKR_per_Kg']
-lean_prices = df_market[df_market['Date'].dt.month.isin(lean_months)]['Mandi_Price_PKR_per_Kg']
-
-st.sidebar.write(f"Harvest (Mar-May) avg: {harvest_prices.mean():.2f} PKR/kg")
-st.sidebar.write(f"Lean (Oct-Dec) avg: {lean_prices.mean():.2f} PKR/kg")
-st.sidebar.write(f"Price spread: {(lean_prices.mean() - harvest_prices.mean()):.2f} PKR/kg")
-
-current_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-1].round(2)
-historical_avg = df_market['Mandi_Price_PKR_per_Kg'].mean().round(2)
     
+    return pd.DataFrame(data)
+
 @st.cache_data
 def generate_supplier_data(num_suppliers=50):
     """Simulates the expanded network of flour mills."""
@@ -116,15 +94,15 @@ def generate_supplier_data(num_suppliers=50):
 
 @st.cache_data
 def generate_tender_history(df_market, df_suppliers):
-    """Simulates past procurement tenders and winning bids for regression training."""
-    tender_dates = df_market['Date'].unique()[::30] 
+    """Simulates past procurement tenders."""
+    tender_dates = df_market['Date'].unique()[::30]
     data = []
     for i, date in enumerate(tender_dates):
         base_price = df_market[df_market['Date'] == date]['Mandi_Price_PKR_per_Kg'].mean()
         required_tons = np.random.randint(200, 1000)
         winning_supplier = df_suppliers.sample(1).iloc[0]
-        milling_cost = np.random.uniform(5, 8) 
-        margin_factor = 0.5 * (5 - winning_supplier['Quality_Rating']) / 5 
+        milling_cost = np.random.uniform(5, 8)
+        margin_factor = 0.5 * (5 - winning_supplier['Quality_Rating']) / 5
         winning_price = base_price + milling_cost + margin_factor + np.random.normal(0, 0.5)
         
         data.append({
@@ -139,11 +117,10 @@ def generate_tender_history(df_market, df_suppliers):
 
     return pd.DataFrame(data)
 
-# --- 2. PREDICTIVE & ANALYTICS FUNCTIONS ---
+# --- 2. PREDICTIVE FUNCTIONS ---
 
 def calculate_regional_volatility(df_market):
-    """Calculates the Coefficient of Variation (CV) for each region over the last 12 months."""
-    
+    """Calculates price volatility by region."""
     one_year_ago = datetime.today() - timedelta(days=365)
     df_recent = df_market[df_market['Date'] >= one_year_ago].copy()
     
@@ -153,7 +130,6 @@ def calculate_regional_volatility(df_market):
     ).reset_index()
     
     volatility_data['CV (%)'] = (volatility_data['Std_Dev'] / volatility_data['Mean_Price']) * 100
-    
     volatility_data['Mean_Price'] = volatility_data['Mean_Price'].round(2)
     volatility_data['Std_Dev'] = volatility_data['Std_Dev'].round(2)
     volatility_data['CV (%)'] = volatility_data['CV (%)'].round(2)
@@ -161,7 +137,7 @@ def calculate_regional_volatility(df_market):
     return volatility_data.sort_values(by='CV (%)', ascending=False)
 
 def simple_price_forecasting(df_market, region, days=30):
-    """Simulates a simple linear forecast for the next 'days'."""
+    """Simple linear forecast."""
     df_region = df_market[df_market['Region'] == region].copy()
     df_region['Days_Since_Start'] = (df_region['Date'] - df_region['Date'].min()).dt.days
     
@@ -178,15 +154,13 @@ def simple_price_forecasting(df_market, region, days=30):
     
     future_prices = model.predict(future_days_count)
     
-    df_forecast = pd.DataFrame({
+    return pd.DataFrame({
         'Date': future_dates,
         'Mandi_Price_PKR_per_Kg': future_prices.round(2)
     })
-    
-    return df_forecast
 
 def regression_target_price(df_tenders, df_suppliers, current_market_price, required_tons, location):
-    """Uses Regression to estimate the expected winning bid price."""
+    """Predicts winning bid price."""
     df_reg = df_tenders.merge(df_suppliers[['Supplier_ID', 'Max_Capacity_Tons', 'Quality_Rating']], 
                               left_on='Winning_Supplier_ID', right_on='Supplier_ID')
     
@@ -205,7 +179,7 @@ def regression_target_price(df_tenders, df_suppliers, current_market_price, requ
     input_data = pd.DataFrame([{
         'Market_Base_Price': current_market_price,
         'Max_Capacity_Tons': required_tons,
-        'Quality_Rating': 4.0 
+        'Quality_Rating': 4.0
     }])
     
     for loc_col in location_features:
@@ -220,70 +194,52 @@ def regression_target_price(df_tenders, df_suppliers, current_market_price, requ
     input_data = input_data[features]
     
     predicted_premium = model.predict(input_data)[0]
-    target_price = current_market_price + predicted_premium
-    
-    return target_price
+    return current_market_price + predicted_premium
 
-def simulate_storage_strategy(df_market, annual_need_tons, holding_cost_pk_month, strategy="rental", capex_years=7):
+# --- FIXED STORAGE CALCULATOR ---
+
+def simulate_storage_strategy(annual_need_tons, holding_cost_pk_month, strategy="rental", capex_years=7):
     """
-    Enhanced to support all three strategic options from the report.
+    FIXED: Uses hardcoded values from Unilever report (Page 5.1)
+    Harvest: PKR 90-95/kg, Lean: PKR 110-115/kg, Spread: PKR 18-22/kg
     """
-    df_market['Year'] = df_market['Date'].dt.year
-    df_market['Month'] = df_market['Date'].dt.month
+    # VALUES FROM YOUR REPORT (Page 5.1)
+    harvest_price = 92.5  # PKR/kg (middle of 90-95)
+    lean_price = 112.5    # PKR/kg (middle of 110-115)
+    price_spread = 20.0   # PKR/kg (middle of 18-22)
     
-    # Use data from the last 2 full years
-    last_full_year = datetime.today().year - 1
-    df_sim = df_market[df_market['Year'] >= last_full_year - 1].copy()
+    holding_months = 6
+    holding_cost_total = holding_cost_pk_month * holding_months
     
-    # Harvest season: March, April, May (low prices)
-    df_low = df_sim[df_sim['Month'].isin([3, 4, 5])]
-    # Lean season: October, November, December (high prices)
-    df_high = df_sim[df_sim['Month'].isin([10, 11, 12])]
-    
-    avg_low_price = df_low['Mandi_Price_PKR_per_Kg'].mean()
-    avg_high_price = df_high['Mandi_Price_PKR_per_Kg'].mean()
-    
-    # Core arbitrage calculation
-    gross_saving_pk_kg = avg_high_price - avg_low_price
-    holding_months = 6  # May -> November storage
-    holding_cost_total_pk_kg = holding_cost_pk_month * holding_months
-    
-    # Strategy-specific costs
+    # Strategy costs
     if strategy == "rental":
-        # Option A: Rental model - high recurring costs
-        annual_storage_cost_pk_kg = holding_cost_pk_month * 12  # Full year cost
-        capex_cost_pk_kg = 0
+        annual_storage_cost = holding_cost_pk_month * 12
+        capex_cost = 0
     elif strategy == "ownership":
-        # Option B: Full ownership - high CapEx, lower O&M
-        # PKR 15,346 per MT installed capacity = PKR 15.35 per kg
-        capex_per_kg = 15.35  # PKR per kg capacity
-        annual_capex_cost_pk_kg = capex_per_kg / capex_years
-        # Lower O&M cost vs rental (approx 30% of rental)
-        annual_storage_cost_pk_kg = holding_cost_pk_month * 12 * 0.3
-        capex_cost_pk_kg = annual_capex_cost_pk_kg
+        capex_per_kg = 15.35  # PKR 153.46M for 10,000 MT
+        annual_capex_cost = capex_per_kg / capex_years
+        annual_storage_cost = holding_cost_pk_month * 12 * 0.3
+        capex_cost = annual_capex_cost
     elif strategy == "hybrid":
-        # Option C: Hybrid - CapEx + fixed O&M
-        capex_per_kg = 15.35  # Same as ownership
-        annual_capex_cost_pk_kg = capex_per_kg / capex_years
-        # Fixed O&M fee (approx PKR 5 per kg annually from PKR 50M for 10,000 MT)
-        fixed_om_pk_kg = 5.0  # PKR per kg per year
-        annual_storage_cost_pk_kg = fixed_om_pk_kg
-        capex_cost_pk_kg = annual_capex_cost_pk_kg
+        capex_per_kg = 15.35
+        annual_capex_cost = capex_per_kg / capex_years
+        fixed_om = 5.0  # PKR 50M/year for 10,000 MT
+        annual_storage_cost = fixed_om
+        capex_cost = annual_capex_cost
     else:
-        annual_storage_cost_pk_kg = holding_cost_pk_month * 12
-        capex_cost_pk_kg = 0
+        annual_storage_cost = holding_cost_pk_month * 12
+        capex_cost = 0
     
-    # Net saving per kg
-    net_saving_pk_kg = gross_saving_pk_kg - holding_cost_total_pk_kg - annual_storage_cost_pk_kg - capex_cost_pk_kg
+    net_saving = price_spread - holding_cost_total - annual_storage_cost - capex_cost
     
     return {
-        'Net_Saving_PKR_per_Kg': net_saving_pk_kg,
-        'Gross_Saving_PKR_per_Kg': gross_saving_pk_kg,
-        'Avg_Low_Price': avg_low_price,
-        'Avg_High_Price': avg_high_price,
-        'Harvest_Season': "March-May",
+        'Net_Saving_PKR_per_Kg': net_saving,
+        'Gross_Saving_PKR_per_Kg': price_spread,
+        'Avg_Low_Price': harvest_price,
+        'Avg_High_Price': lean_price,
+        'Harvest_Season': "April-May",
         'Lean_Season': "October-December",
-        'Price_Spread_PKR_per_Kg': gross_saving_pk_kg,
+        'Price_Spread_PKR_per_Kg': price_spread,
         'Strategy': strategy.upper()
     }
 
@@ -294,66 +250,58 @@ def enhanced_storage_calculator():
     st.subheader("🏦 Strategic Storage Options Calculator")
     st.caption("Compare Rental, Ownership, and Hybrid models for maximum procurement savings")
     
-    # Three-column layout for strategy comparison
+    # Debug info
+    with st.sidebar.expander("📊 Price Verification"):
+        harvest_months = [3, 4, 5]
+        lean_months = [10, 11, 12]
+        
+        harvest_avg = df_market[df_market['Date'].dt.month.isin(harvest_months)]['Mandi_Price_PKR_per_Kg'].mean()
+        lean_avg = df_market[df_market['Date'].dt.month.isin(lean_months)]['Mandi_Price_PKR_per_Kg'].mean()
+        
+        st.write(f"Harvest (Mar-May): PKR {harvest_avg:.2f}/kg")
+        st.write(f"Lean (Oct-Dec): PKR {lean_avg:.2f}/kg")
+        st.write(f"Spread: PKR {lean_avg - harvest_avg:.2f}/kg")
+        
+        if harvest_avg < lean_avg:
+            st.success("✅ Data is correct!")
+        else:
+            st.error("❌ Data is backwards!")
+    
+    # Input columns
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("##### 📋 Strategy Inputs")
         annual_need = st.number_input(
             "Annual Flour Need (Tons)",
-            min_value=5000, 
-            max_value=30000, 
-            value=10000, 
-            step=1000,
-            help="Unilever's total annual wheat requirement"
+            min_value=5000, max_value=30000, value=10000, step=1000
         )
         
         storage_coverage = st.slider(
             "Silo Coverage (% of Annual Need)",
-            min_value=10, 
-            max_value=80, 
-            value=50, 
-            step=5,
-            help="What percentage to store during harvest season"
+            min_value=10, max_value=80, value=30, step=5
         )
         
         analysis_years = st.slider(
             "Analysis Period (Years)",
-            min_value=1, 
-            max_value=10, 
-            value=7,
-            help="Strategic planning horizon"
+            min_value=1, max_value=10, value=7, step=1
         )
     
     with col2:
         st.markdown("##### ⚙️ Cost Parameters")
-        
         holding_cost = st.number_input(
             "Silo Rental Cost (PKR/Kg/Month)",
-            min_value=0.10,
-            max_value=1.50,
-            value=0.50, 
-            format="%.2f",
-            step=0.05,
-            help="Monthly holding cost for rented silos"
+            min_value=0.10, max_value=1.50, value=0.50, format="%.2f", step=0.05
         )
         
         working_capital_rate = st.slider(
             "Working Capital Rate (%)",
-            min_value=5,
-            max_value=25,
-            value=15,
-            step=1,
-            help="Cost of capital for inventory financing"
+            min_value=5, max_value=25, value=15, step=1
         )
         
         storage_loss_rate = st.slider(
             "Storage Loss Rate (%)",
-            min_value=0.1,
-            max_value=3.0,
-            value=1.0,
-            step=0.1,
-            help="Annual loss due to shrinkage, pests, etc."
+            min_value=0.1, max_value=3.0, value=1.0, step=0.1
         )
     
     with col3:
@@ -361,19 +309,17 @@ def enhanced_storage_calculator():
         strategy = st.radio(
             "Select Storage Strategy:",
             ["Rental (Option A)", "Ownership (Option B)", "Hybrid (Option C)"],
-            help="Choose your strategic approach"
+            index=2  # Default to Hybrid
         )
         
-        # Map to strategy codes
         strategy_code = "rental"
         if "Ownership" in strategy:
             strategy_code = "ownership"
         elif "Hybrid" in strategy:
             strategy_code = "hybrid"
         
-        # Strategy descriptions
         if strategy_code == "rental":
-            st.info("**Option A - Silo Rental**: No CapEx, High recurring costs. Quick implementation.")
+            st.info("**Option A - Silo Rental**: No CapEx, High recurring costs.")
         elif strategy_code == "ownership":
             st.info("**Option B - Full Ownership**: High CapEx (PKR 153M), Lower long-term costs.")
         else:
@@ -381,182 +327,150 @@ def enhanced_storage_calculator():
     
     st.markdown("---")
     
-    # Calculate recommended volume
+    # Calculations
     recommended_volume_tons = annual_need * (storage_coverage / 100)
     
-    # Run simulation for selected strategy
     storage_results = simulate_storage_strategy(
-        df_market,
         recommended_volume_tons,
         holding_cost,
         strategy_code,
         analysis_years
     )
     
-    # Calculate working capital impact
+    # Financial calculations
     inventory_value = recommended_volume_tons * 1000 * storage_results['Avg_Low_Price']
     working_capital_cost = inventory_value * (working_capital_rate / 100)
-    
-    # Calculate total savings over analysis period
     annual_savings = storage_results['Net_Saving_PKR_per_Kg'] * recommended_volume_tons * 1000
     total_savings = annual_savings * analysis_years
     total_wc_cost = working_capital_cost * analysis_years
     
-    # Adjust for strategy-specific costs
+    # Strategy adjustments
     if strategy_code == "ownership":
-        capex = 153460000  # PKR 153.46M for 10,000 MT
+        capex = 153460000  # PKR 153.46M
         total_savings -= capex
     elif strategy_code == "hybrid":
         capex = 153460000
-        annual_om = 50000000  # PKR 50M/year O&M fee
+        annual_om = 50000000  # PKR 50M/year
         total_savings -= (capex + (annual_om * analysis_years))
     
-    # Net savings after all costs
     net_savings = total_savings - total_wc_cost
     
     # Display Results
     st.subheader("📊 Financial Impact Analysis")
     
-    # Key Metrics
-    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    metric1, metric2, metric3 = st.columns(3)
     
-    with metric_col1:
+    with metric1:
         st.metric(
-            "Price Spread (Harvest vs Lean)",
+            "Price Spread",
             f"PKR {storage_results['Price_Spread_PKR_per_Kg']:.2f}/kg",
             delta=f"{storage_results['Harvest_Season']} → {storage_results['Lean_Season']}"
         )
     
-    with metric_col2:
+    with metric2:
         st.metric(
-            "Recommended Storage Volume",
+            "Storage Volume",
             f"{int(recommended_volume_tons):,} Tons",
-            delta=f"{storage_coverage}% of Annual Need"
+            delta=f"{storage_coverage}% of Need"
         )
     
-    with metric_col3:
-        savings_color = "normal" if net_savings > 0 else "inverse"
+    with metric3:
+        color = "normal" if net_savings > 0 else "inverse"
         st.metric(
-            f"Net Savings over {analysis_years} Years",
+            f"Net Savings ({analysis_years} Years)",
             f"PKR {abs(net_savings)/1_000_000:,.1f}M",
             delta="Profitable" if net_savings > 0 else "Not Viable",
-            delta_color=savings_color
+            delta_color=color
         )
     
-    # Detailed Breakdown
+    # Cost breakdown
     st.markdown("##### 💰 Cost-Benefit Breakdown")
     
-    breakdown_col1, breakdown_col2 = st.columns(2)
+    col_left, col_right = st.columns(2)
     
-    with breakdown_col1:
-        st.markdown("**Revenue Side (Savings):**")
-        st.write(f"- Gross Price Savings: PKR {storage_results['Gross_Saving_PKR_per_Kg']:.2f}/kg")
+    with col_left:
+        st.markdown("**Revenue (Savings):**")
         st.write(f"- Harvest Price: PKR {storage_results['Avg_Low_Price']:.2f}/kg")
-        st.write(f"- Lean Season Price: PKR {storage_results['Avg_High_Price']:.2f}/kg")
-        st.write(f"- Annual Gross Savings: PKR {annual_savings/1_000_000:,.1f}M")
+        st.write(f"- Lean Price: PKR {storage_results['Avg_High_Price']:.2f}/kg")
+        st.write(f"- Price Spread: PKR {storage_results['Price_Spread_PKR_per_Kg']:.2f}/kg")
+        st.write(f"- Annual Savings: PKR {annual_savings/1_000_000:,.1f}M")
     
-    with breakdown_col2:
-        st.markdown("**Cost Side:**")
+    with col_right:
+        st.markdown("**Costs:**")
         if strategy_code == "rental":
-            st.write(f"- Annual Rental Cost: PKR {(holding_cost * 12 * recommended_volume_tons * 1000)/1_000_000:,.1f}M")
+            st.write(f"- Annual Rental: PKR {holding_cost * 12 * recommended_volume_tons * 1000/1_000_000:,.1f}M")
         elif strategy_code == "ownership":
-            st.write(f"- Capital Expenditure: PKR 153.5M (one-time)")
-            st.write(f"- Annual O&M Cost: ~30% of rental")
-        else:  # hybrid
-            st.write(f"- Capital Expenditure: PKR 153.5M (one-time)")
-            st.write(f"- Annual O&M Fee: PKR 50.0M")
+            st.write(f"- Capex: PKR 153.5M (one-time)")
+        else:
+            st.write(f"- Capex: PKR 153.5M + Annual O&M: PKR 50.0M")
         
-        st.write(f"- Working Capital Cost: PKR {working_capital_cost/1_000_000:,.1f}M/year")
-        st.write(f"- Storage Loss ({storage_loss_rate}%): PKR {(inventory_value * storage_loss_rate/100)/1_000_000:,.1f}M/year")
+        st.write(f"- Working Capital: PKR {working_capital_cost/1_000_000:,.1f}M/year")
+        st.write(f"- Storage Loss: PKR {inventory_value * storage_loss_rate/100/1_000_000:,.1f}M/year")
     
-    # Strategic Insights
+    # Insights
     st.markdown("---")
     st.subheader("🎯 Strategic Insights")
     
-    insight_col1, insight_col2 = st.columns(2)
+    insight1, insight2 = st.columns(2)
     
-    with insight_col1:
-        # Breakeven Analysis
+    with insight1:
         if strategy_code == "rental":
-            breakeven = "Immediate (monthly)"
+            breakeven = "Monthly"
+            risk = "Low - Flexible"
         elif strategy_code == "ownership":
-            breakeven = f"~{analysis_years} years (depends on utilization)"
-        else:  # hybrid
-            breakeven = "4-5 years (operational breakeven)"
-        
-        st.markdown(f"**📅 Breakeven Timeline:** {breakeven}")
-        
-        # Risk Assessment
-        if strategy_code == "rental":
-            risk_level = "Low"
-            risk_desc = "Flexible, low commitment"
-        elif strategy_code == "ownership":
-            risk_level = "High"
-            risk_desc = "High capital risk, long-term commitment"
+            breakeven = f"{analysis_years} years"
+            risk = "High - Capital intensive"
         else:
-            risk_level = "Medium"
-            risk_desc = "Balanced risk profile"
+            breakeven = "4-5 years"
+            risk = "Medium - Balanced"
         
-        st.markdown(f"**⚠️ Risk Level:** {risk_level} - {risk_desc}")
+        st.markdown(f"**📅 Breakeven:** {breakeven}")
+        st.markdown(f"**⚠️ Risk:** {risk}")
     
-    with insight_col2:
-        # Strategic Fit
+    with insight2:
         if strategy_code == "rental":
             fit = "Short-term (1-3 years)"
-            recommendation = "Start with rental to test market"
+            rec = "Start with rental to test"
         elif strategy_code == "ownership":
             fit = "Long-term (5+ years)"
-            recommendation = "Commit if demand is stable and predictable"
+            rec = "Commit if demand is stable"
         else:
             fit = "Medium-term (3-7 years)"
-            recommendation = "Ideal balance of control and flexibility"
+            rec = "Ideal balance for Unilever"
         
         st.markdown(f"**🎯 Strategic Fit:** {fit}")
-        st.markdown(f"**💡 Recommendation:** {recommendation}")
+        st.markdown(f"**💡 Recommendation:** {rec}")
     
-    # Cumulative Savings Chart using Streamlit's built-in chart
+    # Chart
     st.markdown("---")
     st.subheader("📈 Cumulative Savings Projection")
     
-    # Generate projection data
     years = list(range(1, analysis_years + 1))
-    cumulative_savings = []
+    cumulative = []
     
     for year in years:
         year_savings = annual_savings * year
-        
-        # Deduct costs
         if strategy_code == "ownership" and year == 1:
-            year_savings -= 153460000  # Capex in year 1
+            year_savings -= 153460000
         elif strategy_code == "hybrid":
-            year_savings -= 153460000  # Capex in year 1
-            year_savings -= 50000000 * year  # Annual O&M
+            year_savings -= 153460000
+            year_savings -= 50000000 * year
         
-        year_savings -= working_capital_cost * year  # Working capital
-        cumulative_savings.append(year_savings / 1_000_000)  # Convert to millions
+        year_savings -= working_capital_cost * year
+        cumulative.append(year_savings / 1_000_000)
     
-    # Create chart using Streamlit's built-in line_chart (NO PLOTLY)
-    chart_data = pd.DataFrame({
+    chart_df = pd.DataFrame({
         'Year': years,
-        'Cumulative Savings (PKR M)': cumulative_savings
+        'Cumulative Savings (PKR M)': cumulative
     })
     
-    st.line_chart(chart_data.set_index('Year'))
+    st.line_chart(chart_df.set_index('Year'))
     
-    # Policy Warning
-    st.warning("""
-    **Important:** This analysis assumes stable government procurement policies. 
-    Policy changes (import bans, price controls, subsidy changes) may significantly impact actual savings.
-    """)
+    st.warning("**Note:** Assumes stable government policies. Policy changes may impact savings.")
     
-    return {
-        'strategy': strategy,
-        'net_savings': net_savings,
-        'annual_savings': annual_savings,
-        'breakeven_year': 4 if strategy_code == "hybrid" else 1
-    }
+    return {'strategy': strategy, 'net_savings': net_savings}
 
-# --- Data Generation (Run once) ---
+# --- Generate Data ---
 df_market = generate_market_data()
 df_suppliers = generate_supplier_data()
 df_tenders = generate_tender_history(df_market, df_suppliers)
@@ -566,213 +480,119 @@ historical_avg = df_market['Mandi_Price_PKR_per_Kg'].mean().round(2)
 # --- 3. STREAMLIT PAGES ---
 
 def page_dashboard():
-    """Page 1: The Main Dashboard with Analytics and Bidding."""
-    
+    """Main Dashboard."""
     st.title("🌾 UniGrain Connect: Strategic Procurement Dashboard")
     st.markdown("### Cost Volatility Mitigation Prototype for Unilever")
-
-    # --- KPI Section ---
-    st.subheader("Key Performance Indicators (KPIs)")
+    
+    # KPIs
     col1, col2, col3 = st.columns(3)
-
-    col1.metric("Current Wheat Mandi Price (PKR/Kg)", f"{current_price}")
-    col2.metric("3-Year Avg. Price (PKR/Kg)", f"{historical_avg}", delta=f"{(current_price - historical_avg):.2f}", delta_color="inverse")
-    col3.metric("Supplier Network Size", f"{len(df_suppliers)} Millers", delta=f"Open Network: +{len(df_suppliers) - 1}", delta_color="normal")
+    col1.metric("Current Price (PKR/Kg)", f"{current_price}")
+    col2.metric("3-Year Average", f"{historical_avg}")
+    col3.metric("Supplier Network", f"{len(df_suppliers)} Millers")
     st.markdown("---")
     
-    # --- Volatility Analysis ---
-    st.subheader("📊 Price Volatility & Risk Analysis")
-    
+    # Volatility Analysis
+    st.subheader("📊 Price Volatility Analysis")
     df_volatility = calculate_regional_volatility(df_market)
-    
-    col_cv_chart, col_cv_table = st.columns([2, 1])
-    
-    with col_cv_chart:
-        st.bar_chart(df_volatility.set_index('Region')['CV (%)'])
-    
-    with col_cv_table:
-        st.markdown("##### Regional Volatility Scorecard (Last 12 Months)")
-        st.dataframe(
-            df_volatility[['Region', 'CV (%)', 'Mean_Price']],
-            use_container_width=True,
-            hide_index=True
-        )
-
-    st.info(f"**Decision Insight:** The region with the highest CV ({df_volatility['Region'].iloc[0]}) should be prioritized for long-term strategies like **Silo Storage** to lock in costs and mitigate price risk.")
+    st.bar_chart(df_volatility.set_index('Region')['CV (%)'])
     st.markdown("---")
     
-    # --- ENHANCED STORAGE CALCULATOR ---
+    # Storage Calculator
     enhanced_storage_calculator()
     
-    # --- ANALYTICS AND BIDDING ---
-    col_intelligence, col_marketplace = st.columns([1, 1])
-
-    # --- COLUMN 1: MARKET INTELLIGENCE & FORECASTING ---
-    with col_intelligence:
-        st.subheader("🧠 Market Intelligence & Predictive Sourcing")
+    # Market Intelligence & Bidding
+    col_intel, col_bid = st.columns(2)
+    
+    with col_intel:
+        st.subheader("🧠 Market Intelligence")
+        region = st.selectbox("Select Region:", df_market['Region'].unique())
+        df_forecast = simple_price_forecasting(df_market, region)
         
-        # --- Price Forecasting Widget ---
-        st.markdown("#### **Price Risk Forecasting (30-Day Outlook)**")
+        # Combine historical and forecast
+        df_hist = df_market[df_market['Region'] == region][['Date', 'Mandi_Price_PKR_per_Kg']]
+        df_hist = df_hist.rename(columns={'Mandi_Price_PKR_per_Kg': 'Historical'})
+        df_fcst = df_forecast.rename(columns={'Mandi_Price_PKR_per_Kg': 'Forecast'})
+        df_combined = pd.concat([df_hist, df_fcst]).set_index('Date').sort_index()
         
-        forecast_region = st.selectbox(
-            'Select Region for Price Forecast:',
-            df_market['Region'].unique()
-        )
+        st.line_chart(df_combined)
         
-        df_forecast = simple_price_forecasting(df_market, forecast_region)
-        df_plot = df_market[df_market['Region'] == forecast_region].rename(columns={'Mandi_Price_PKR_per_Kg': 'Historical Price'})
-        df_forecast = df_forecast.rename(columns={'Mandi_Price_PKR_per_Kg': 'Forecast Price'})
-        df_full = pd.merge(df_plot[['Date', 'Historical Price']], df_forecast, on='Date', how='outer')
-        df_full = df_full.set_index('Date').sort_index()
+        # Insight
+        latest_price = df_hist['Historical'].iloc[-1]
+        forecast_price = df_fcst['Forecast'].iloc[-1]
         
-        st.line_chart(df_full)
-        
-        # Actionable Insight based on forecast
-        latest_forecast = df_forecast['Forecast Price'].iloc[-1]
-        current_regional_price = df_plot['Historical Price'].iloc[-1]
-        
-        st.markdown("##### **Actionable Insight**")
-        if latest_forecast > current_regional_price * 1.01:
-            st.error(f"**High Risk:** Price is predicted to **increase by {(latest_forecast - current_regional_price):.2f} PKR**. Initiate **Reverse Auction NOW**.")
-        elif latest_forecast < current_regional_price * 0.99:
-            st.warning(f"**Potential Saving:** Price is predicted to **decrease by {(current_regional_price - latest_forecast):.2f} PKR**. Consider holding off on major purchase.")
+        if forecast_price > latest_price * 1.02:
+            st.error(f"**Warning:** Price predicted to rise by {forecast_price-latest_price:.2f} PKR")
+        elif forecast_price < latest_price * 0.98:
+            st.success(f"**Opportunity:** Price predicted to fall by {latest_price-forecast_price:.2f} PKR")
         else:
-            st.info("Price is stable. Proceed with standard procurement plan.")
-
-        st.markdown("---")
-
-        # --- Target Price Regression Widget ---
-        st.markdown("#### **Target Price Estimator (Regression Model)**")
+            st.info("Prices expected to remain stable")
+    
+    with col_bid:
+        st.subheader("💪 Digital Bidding")
         
-        market_price = st.number_input("Input Current Mandi Price (PKR/Kg)", value=current_price, format="%.2f")
-        required_tons = st.slider("Required Volume (Tons)", min_value=100, max_value=2000, value=500)
-        delivery_loc = st.selectbox("Delivery Location (for transport cost factor)", df_suppliers['Location'].unique())
-
-        target_price = regression_target_price(df_tenders, df_suppliers, market_price, required_tons, delivery_loc)
-        
-        st.success(f"**Predicted Target Winning Bid (PKR/Kg):** **{target_price:.2f}**")
-        st.caption("This price is used to benchmark quotes from the competing millers.")
-
-    # --- COLUMN 2: BIDDING MARKETPLACE & TENDER MANAGEMENT ---
-    with col_marketplace:
-        st.subheader("💪 Digital Bidding Marketplace")
-        
-        st.markdown("#### **Create New Reverse Auction Tender**")
-        
-        with st.form("new_tender_form"):
-            req_tons = st.number_input("Required Fine Flour Volume (Tons)", min_value=100, value=500)
-            req_date = st.date_input("Required Delivery Date", datetime.today() + timedelta(days=14))
-            mode = st.radio("Procurement Mode", ["Buy Product (Flour)", "Toll Manufacturing (Grinding Service)"])
-            
-            submitted = st.form_submit_button("Post Live Tender (Simulated)")
+        with st.form("tender_form"):
+            req_tons = st.number_input("Required Tons", 100, 2000, 500)
+            req_date = st.date_input("Delivery Date", datetime.today() + timedelta(days=14))
+            submitted = st.form_submit_button("Post Tender")
             
             if submitted:
-                st.success(f"Tender for **{req_tons} Tons** posted successfully to **{len(df_suppliers)}** competing millers! Bidding has started.")
-
-        st.markdown("---")
+                st.success(f"Tender for {req_tons} tons posted!")
         
-        st.markdown("#### **Live Bidding Window (Tender TNDR001)**")
-        
-        # Simulate live bids
-        np.random.seed(100)
+        st.markdown("#### Live Bids")
         bids = []
-        
-        for i in range(10): # Show 10 simulated bidders
+        for i in range(8):
             supplier = df_suppliers.sample(1).iloc[0]
-            bid_price = target_price + np.random.uniform(-1.5, 2.5) 
-            
+            base = current_price + np.random.uniform(2, 5)
             bids.append({
                 'Supplier': supplier['Supplier_Name'],
                 'Location': supplier['Location'],
-                'Quality Rating': supplier['Quality_Rating'],
-                'Bid Price (PKR/Kg)': round(bid_price, 2)
+                'Quality': supplier['Quality_Rating'],
+                'Bid (PKR/Kg)': round(base, 2)
             })
-
-        df_bids = pd.DataFrame(bids).sort_values(by='Bid Price (PKR/Kg)')
         
-        # Highlight the lowest bid
-        def highlight_min_price(s):
-            is_min = s == s.min()
-            return ['background-color: #a0f0a0' if v else '' for v in is_min]
-
-        st.dataframe(df_bids.style.apply(highlight_min_price, subset=['Bid Price (PKR/Kg)']), 
-                     use_container_width=True,
-                     hide_index=True)
+        df_bids = pd.DataFrame(bids).sort_values('Bid (PKR/Kg)')
+        st.dataframe(df_bids, hide_index=True)
         
-        lowest_bid = df_bids['Bid Price (PKR/Kg)'].min()
-        saving = target_price - lowest_bid
-        
-        st.metric(label="Lowest Bid Price", value=f"{lowest_bid:.2f} PKR/Kg", 
-                  delta=f"Savings vs. Target: {saving:.2f} PKR/Kg", delta_color="normal")
-
+        if len(df_bids) > 0:
+            best_bid = df_bids['Bid (PKR/Kg)'].min()
+            st.metric("Best Bid", f"{best_bid:.2f} PKR/Kg")
 
 def page_supplier_network():
-    """Page 2: Detailed view of the expanded supplier network."""
+    """Supplier Network Page."""
+    st.title("🌐 Supplier Network & Vetting")
+    st.markdown(f"### Expanding from 1-5 to {len(df_suppliers)} competing millers")
     
-    st.title("🌐 Supplier Network & Vetting Module")
-    st.markdown("### Expanding the Sourcing Pool for Cost Reduction")
-
-    st.warning(f"Unilever previously relied on 1-5 main suppliers. **UniGrain Connect** opens the market to **{len(df_suppliers)}** competing millers.")
-    st.markdown("---")
-
-    col_filters, col_table = st.columns([1, 3])
-
-    with col_filters:
+    col_filt, col_table = st.columns([1, 3])
+    
+    with col_filt:
         st.markdown("#### Filter Network")
-        
-        # Filter 1: Location
-        selected_locations = st.multiselect(
-            'Filter by Location:',
-            options=df_suppliers['Location'].unique(),
-            default=df_suppliers['Location'].unique()
-        )
-        
-        # Filter 2: Quality Rating
-        min_rating = st.slider(
-            'Minimum Quality Rating:',
-            min_value=2.5, max_value=5.0, value=3.0, step=0.1
-        )
-        
-        # Filter 3: Capacity
-        max_capacity = st.slider(
-            'Maximum Required Capacity (Tons/Day):',
-            min_value=50, max_value=500, value=250, step=10
-        )
-
-    # Apply filters
-    df_filtered = df_suppliers[
-        (df_suppliers['Location'].isin(selected_locations)) &
-        (df_suppliers['Quality_Rating'] >= min_rating) &
-        (df_suppliers['Max_Capacity_Tons'] <= max_capacity)
-    ]
-
+        locations = st.multiselect("Location:", df_suppliers['Location'].unique(), 
+                                  default=df_suppliers['Location'].unique())
+        min_rating = st.slider("Min Quality:", 2.5, 5.0, 3.0, 0.1)
+        max_cap = st.slider("Max Capacity:", 50, 500, 250, 10)
+    
     with col_table:
-        st.markdown(f"#### Verified Millers ({len(df_filtered)} Found)")
+        filtered = df_suppliers[
+            (df_suppliers['Location'].isin(locations)) &
+            (df_suppliers['Quality_Rating'] >= min_rating) &
+            (df_suppliers['Max_Capacity_Tons'] <= max_cap)
+        ]
+        
+        st.markdown(f"#### Verified Millers ({len(filtered)} found)")
         st.dataframe(
-            df_filtered[['Supplier_Name', 'Location', 'Max_Capacity_Tons', 'Quality_Rating', 'On_Contract']],
-            use_container_width=True,
+            filtered[['Supplier_Name', 'Location', 'Max_Capacity_Tons', 'Quality_Rating', 'On_Contract']],
             column_config={
                 "On_Contract": "Existing Supplier?",
-                "Max_Capacity_Tons": "Capacity (Tons/Day)",
-                "Quality_Rating": st.column_config.ProgressColumn(
-                    "Quality Rating (1-5)",
-                    format="%.1f",
-                    min_value=2.5,
-                    max_value=5.0,
-                ),
+                "Quality_Rating": st.column_config.ProgressColumn(min_value=2.5, max_value=5.0)
             },
             hide_index=True
         )
-        st.caption("The 'Existing Supplier' is easily replaced by the network of verified millers above.")
 
-# --- MAIN APP LOGIC (Sidebar Navigation) ---
+# --- Main App ---
 st.sidebar.title("UniGrain Connect")
-app_mode = st.sidebar.radio("Navigation", ["Dashboard & Bidding", "Supplier Network & Vetting"])
+page = st.sidebar.radio("Navigation", ["Dashboard & Bidding", "Supplier Network"])
 
-if app_mode == "Dashboard & Bidding":
+if page == "Dashboard & Bidding":
     page_dashboard()
-elif app_mode == "Supplier Network & Vetting":
+else:
     page_supplier_network()
-
-
-
