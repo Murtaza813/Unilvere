@@ -6,8 +6,332 @@ from datetime import datetime, timedelta
 import json
 import random
 
+
 # --- Configuration ---
-st.set_page_config(layout="wide", page_title="UniGrain Connect Prototype")
+st.set_page_config(
+    layout="wide", 
+    page_title="UniGrain Connect",
+    page_icon="🌾",
+    initial_sidebar_state="expanded"
+)
+
+# --- CUSTOM CSS FOR BEAUTIFUL UI ---
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .main {
+        padding: 2rem;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
+        padding: 2rem 1rem;
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    
+    h1 {
+        color: #1e3c72;
+        font-weight: 700;
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    h2 {
+        color: #2a5298;
+        font-weight: 600;
+        font-size: 1.8rem;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        border-bottom: 3px solid #4CAF50;
+        padding-bottom: 0.5rem;
+    }
+    
+    h3 {
+        color: #34495e;
+        font-weight: 600;
+        font-size: 1.3rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    h4 {
+        color: #2c3e50;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    h5 {
+        color: #34495e;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #1e3c72;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.7rem 1.8rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+    
+    .stButton button:active {
+        transform: translateY(0px);
+    }
+    
+    div[data-testid="stExpander"] {
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #e1e8ed;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+    }
+    
+    div[data-testid="stExpander"] summary {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 1rem;
+        color: #2c3e50;
+    }
+    
+    .dataframe {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .dataframe thead tr th {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        font-weight: 600;
+        padding: 1rem;
+        text-align: left;
+        border: none !important;
+    }
+    
+    .dataframe tbody tr {
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .dataframe tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+    
+    .dataframe tbody tr:hover {
+        background-color: #e9ecef;
+        transition: background-color 0.2s ease;
+    }
+    
+    .dataframe tbody td {
+        padding: 0.8rem;
+        color: #2c3e50;
+    }
+    
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+        height: 12px;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 1rem;
+        border-bottom: 2px solid #e1e8ed;
+        padding-bottom: 0;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+        color: #7f8c8d;
+        border-radius: 8px 8px 0 0;
+        background: transparent;
+        border: none;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white !important;
+    }
+    
+    .stTextInput input, .stNumberInput input, .stSelectbox select, .stTextArea textarea {
+        border-radius: 8px;
+        border: 2px solid #e1e8ed;
+        padding: 0.7rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus, .stTextArea textarea:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .stSelectbox, .stMultiSelect {
+        margin-bottom: 1rem;
+    }
+    
+    div[data-baseweb="select"] > div {
+        border-radius: 8px;
+        border: 2px solid #e1e8ed;
+    }
+    
+    .stAlert {
+        border-radius: 10px;
+        padding: 1rem 1.5rem;
+        margin: 1rem 0;
+        border-left: 4px solid;
+    }
+    
+    .stSuccess {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+        color: #155724;
+    }
+    
+    .stInfo {
+        background-color: #d1ecf1;
+        border-left-color: #17a2b8;
+        color: #0c5460;
+    }
+    
+    .stWarning {
+        background-color: #fff3cd;
+        border-left-color: #ffc107;
+        color: #856404;
+    }
+    
+    .stError {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+        color: #721c24;
+    }
+    
+    div[data-testid="stContainer"] {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        margin-bottom: 1.5rem;
+        border: 1px solid #e1e8ed;
+    }
+    
+    .stRadio > label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stRadio > div {
+        gap: 0.5rem;
+    }
+    
+    .stRadio label {
+        background: #f8f9fa;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        border: 2px solid #e1e8ed;
+        transition: all 0.2s ease;
+    }
+    
+    .stRadio label:hover {
+        background: #e9ecef;
+        border-color: #667eea;
+    }
+    
+    .stCheckbox {
+        padding: 0.5rem 0;
+    }
+    
+    .stCheckbox label {
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .stSlider {
+        padding: 1rem 0;
+    }
+    
+    .stSlider > div > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    div[data-baseweb="slider"] > div > div {
+        background: #667eea !important;
+    }
+    
+    .uploadedFile {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 0.8rem;
+        border: 1px solid #e1e8ed;
+    }
+    
+    hr {
+        margin: 2.5rem 0;
+        border: none;
+        border-top: 2px solid #e1e8ed;
+    }
+    
+    .stForm {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid #e1e8ed;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    [data-testid="stVerticalBlock"] > div {
+        gap: 1rem;
+    }
+    
+    section[data-testid="stFileUploadDropzone"] {
+        border: 2px dashed #667eea;
+        border-radius: 10px;
+        background: #f8f9fa;
+        padding: 2rem;
+    }
+    
+    section[data-testid="stFileUploadDropzone"]:hover {
+        border-color: #764ba2;
+        background: #e9ecef;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --- CLEAR CACHE ---
 st.cache_data.clear()
