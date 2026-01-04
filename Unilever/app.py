@@ -878,6 +878,12 @@ def page_farmer_integration():
         with col_contract:
             st.markdown("##### Create New Contract")
             
+            # Initialize session state for contract if not exists
+            if 'contract_generated' not in st.session_state:
+                st.session_state.contract_generated = False
+            if 'contract_details' not in st.session_state:
+                st.session_state.contract_details = {}
+            
             with st.form("forward_contract"):
                 farmer_id = st.selectbox("Select Farmer", df_farmers['Farmer_ID'].tolist())
                 volume_tons = st.number_input("Contract Volume (Tons)", min_value=1.0, max_value=100.0, value=10.0, step=0.5)
@@ -889,40 +895,62 @@ def page_farmer_integration():
                 submitted = st.form_submit_button("Generate Digital Contract")
                 
                 if submitted:
-                    st.success("✅ Contract Generated Successfully!")
-                    
-                    # Show contract summary
-                    with st.expander("View Contract Details", expanded=True):
-                        st.markdown(f"""
-                        ### 📄 UNILEVER FORWARD CONTRACT
-                        
-                        **Contract ID:** CON-{random.randint(1000, 9999)}
-                        **Farmer ID:** {farmer_id}
-                        **Date:** {datetime.today().strftime('%Y-%m-%d')}
-                        
-                        ---
-                        
-                        **TERMS:**
-                        - Fixed Price: **PKR {price_per_maund:,} per maund**
-                        - Volume: **{volume_tons} tons** ({volume_tons * 37.5:.0f} maunds)
-                        - Harvest Date: **{harvest_date}**
-                        - Collection: Village collection center
-                        - Payment: Within 7 days of delivery
-                        
-                        **QUALITY STANDARDS:**
-                        {chr(10).join(f"• {term}" for term in quality_terms)}
-                        
-                        **FARMER BENEFITS:**
-                        • 25% discount on all inputs
-                        • 12% interest loans (vs 24% market)
-                        • No mandi fees or commissions
-                        • Guaranteed purchase
-                        
-                        **Total Contract Value:** PKR {volume_tons * 37.5 * price_per_maund:,.0f}
-                        """)
-                        
-                        if st.button("📱 Send Contract to Farmer"):
-                            st.success("Contract sent via WhatsApp/SMS!")
+                    # Store contract details in session state
+                    st.session_state.contract_details = {
+                        'farmer_id': farmer_id,
+                        'volume_tons': volume_tons,
+                        'price_per_maund': price_per_maund,
+                        'harvest_date': harvest_date,
+                        'quality_terms': quality_terms,
+                        'contract_id': f"CON-{random.randint(1000, 9999)}",
+                        'date': datetime.today().strftime('%Y-%m-%d')
+                    }
+                    st.session_state.contract_generated = True
+                    st.rerun()
+        
+        # Show contract after form submission (OUTSIDE the form)
+        if st.session_state.contract_generated and st.session_state.contract_details:
+            contract = st.session_state.contract_details
+            st.success("✅ Contract Generated Successfully!")
+            
+            with st.expander("View Contract Details", expanded=True):
+                st.markdown(f"""
+                ### 📄 UNILEVER FORWARD CONTRACT
+                
+                **Contract ID:** {contract['contract_id']}
+                **Farmer ID:** {contract['farmer_id']}
+                **Date:** {contract['date']}
+                
+                ---
+                
+                **TERMS:**
+                - Fixed Price: **PKR {contract['price_per_maund']:,} per maund**
+                - Volume: **{contract['volume_tons']} tons** ({contract['volume_tons'] * 37.5:.0f} maunds)
+                - Harvest Date: **{contract['harvest_date']}**
+                - Collection: Village collection center
+                - Payment: Within 7 days of delivery
+                
+                **QUALITY STANDARDS:**
+                {chr(10).join(f"• {term}" for term in contract['quality_terms'])}
+                
+                **FARMER BENEFITS:**
+                • 25% discount on all inputs
+                • 12% interest loans (vs 24% market)
+                • No mandi fees or commissions
+                • Guaranteed purchase
+                
+                **Total Contract Value:** PKR {contract['volume_tons'] * 37.5 * contract['price_per_maund']:,.0f}
+                """)
+                
+                # Button OUTSIDE the form
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("📱 Send Contract to Farmer", type="primary"):
+                        st.success("Contract sent via WhatsApp/SMS!")
+                        st.balloons()
+                with col2:
+                    if st.button("📥 Download PDF"):
+                        st.info("PDF generation would be implemented here")
         
         with col_example:
             st.markdown("##### 📊 Farmer Economics")
