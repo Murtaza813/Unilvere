@@ -3,11 +3,13 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
+st.cache_data.clear()
 
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="UniGrain Connect Prototype")
 
 # --- 1. DATA GENERATION FUNCTIONS ---
+
 
 @st.cache_data
 def generate_market_data(days=365 * 3):
@@ -30,15 +32,23 @@ def generate_market_data(days=365 * 3):
             
             price_offset = {'Karachi (Sindh)': 3, 'Multan (Punjab)': -2, 'Faisalabad (Punjab)': 1, 'Sukkur (Sindh)': -1}[region]
             
-            # FIXED SEASONAL PATTERN: Low in harvest, High in lean
+            # FIXED: Proper seasonal pattern - LOW in harvest, HIGH in lean
             day_of_year = date.timetuple().tm_yday
+            
             # Harvest = April-May (days 90-150) = LOW prices (~90-95 PKR)
             # Lean = Oct-Dec (days 270-365) = HIGH prices (~110-115 PKR)
+            # Using cosine: -10 means lowest at day 135 (May), highest at day 315 (Nov)
             seasonal_factor = -10 * np.cos((day_of_year - 135) * 2 * np.pi / 365)
             
             noise = np.random.normal(0, 1) * volatility_multiplier
             
-            price = base_price + price_offset + seasonal_factor + noise + 0.05 * (date - start_date).days / 365
+            # Slight upward trend over years
+            trend = 0.05 * (date - start_date).days / 365
+            
+            price = base_price + price_offset + seasonal_factor + noise + trend
+            
+            # Ensure prices stay in realistic range
+            price = max(80, min(130, price))  # Between 80-130 PKR/kg
             
             data.append({
                 'Date': date,
@@ -726,4 +736,5 @@ if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
+
 
