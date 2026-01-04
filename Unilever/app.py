@@ -248,114 +248,7 @@ def generate_iot_mill_data():
     
     return pd.DataFrame(data)
 
-def calculate_model1_own_mill(wheat_tons, wheat_cost, flour_price, cost_of_capital):
-    """Calculate Model 1 (Own Mill) financials"""
-    # Capital costs
-    mill_capex = 226000000  # 226M PKR
-    land_capex = 50000000   # 50M PKR
-    total_capex = mill_capex + land_capex
-    
-    # Operational parameters
-    milling_cost_per_ton = 1000  # PKR/ton
-    annual_om_cost = 30000000    # 30M PKR/year
-    annual_depreciation = total_capex / 10  # 10-year depreciation
-    
-    # Revenue calculation
-    flour_per_ton_wheat = 0.72  # 72% extraction
-    annual_flour_tons = wheat_tons * flour_per_ton_wheat
-    
-    # Convert to maunds (1 ton = 37.5 maunds)
-    flour_maunds = annual_flour_tons * 37.5
-    
-    # Costs
-    wheat_cost_total = wheat_tons * 37.5 * wheat_cost
-    milling_cost_total = wheat_tons * milling_cost_per_ton
-    total_annual_cost = wheat_cost_total + milling_cost_total + annual_om_cost
-    
-    # Revenue
-    total_annual_revenue = flour_maunds * flour_price
-    
-    # Profit
-    annual_profit = total_annual_revenue - total_annual_cost
-    
-    # ROI
-    roi = (annual_profit / total_capex) * 100
-    
-    # Payback
-    payback_years = total_capex / annual_profit
-    
-    return {
-        'annual_profit': annual_profit,
-        'roi': round(roi, 1),
-        'payback_years': round(payback_years, 1),
-        'total_capex': total_capex
-    }
 
-def calculate_model2_toll_processing(wheat_tons, wheat_cost, flour_price):
-    """Calculate Model 2 (Toll Processing) financials"""
-    # Toll processing parameters
-    toll_fee_per_ton = 1000  # PKR/ton
-    transport_per_ton = 250  # PKR/ton
-    
-    # Revenue calculation
-    flour_per_ton_wheat = 0.71  # 71% extraction (slightly lower for toll)
-    annual_flour_tons = wheat_tons * flour_per_ton_wheat
-    flour_maunds = annual_flour_tons * 37.5
-    
-    # Costs
-    wheat_cost_total = wheat_tons * 37.5 * wheat_cost
-    toll_cost_total = wheat_tons * toll_fee_per_ton
-    transport_cost_total = wheat_tons * transport_per_ton
-    total_annual_cost = wheat_cost_total + toll_cost_total + transport_cost_total
-    
-    # Revenue
-    total_annual_revenue = flour_maunds * flour_price
-    
-    # Profit
-    annual_profit = total_annual_revenue - total_annual_cost
-    
-    return {
-        'annual_profit': annual_profit,
-        'toll_fee_per_ton': toll_fee_per_ton,
-        'capex': 0
-    }
-
-def calculate_model3_lease_mill(wheat_tons, wheat_cost, flour_price, cost_of_capital):
-    """Calculate Model 3 (Lease & Revive) financials"""
-    # Lease model parameters
-    renovation_capex = 50000000  # 50M PKR
-    annual_lease_cost = 36000000  # 3M/month = 36M/year
-    annual_om_cost = 20000000     # 20M PKR/year
-    
-    # Revenue calculation
-    flour_per_ton_wheat = 0.715  # 71.5% extraction
-    annual_flour_tons = wheat_tons * flour_per_ton_wheat
-    flour_maunds = annual_flour_tons * 37.5
-    
-    # Costs
-    wheat_cost_total = wheat_tons * 37.5 * wheat_cost
-    milling_cost_per_ton = 800  # Lower than toll due to control
-    milling_cost_total = wheat_tons * milling_cost_per_ton
-    total_annual_cost = wheat_cost_total + milling_cost_total + annual_lease_cost + annual_om_cost
-    
-    # Revenue
-    total_annual_revenue = flour_maunds * flour_price
-    
-    # Profit
-    annual_profit = total_annual_revenue - total_annual_cost
-    
-    # ROI (on renovation capex only)
-    roi = (annual_profit / renovation_capex) * 100
-    
-    # Payback
-    payback_years = renovation_capex / annual_profit
-    
-    return {
-        'annual_profit': annual_profit,
-        'roi': round(roi, 1),
-        'payback_years': round(payback_years, 1),
-        'capex': renovation_capex
-    }
 
 # --- 2. PREDICTIVE FUNCTIONS ---
 
@@ -1558,21 +1451,19 @@ app_mode = st.sidebar.radio("Navigation", [
     "Dashboard & Bidding", 
     "Supplier Network & Vetting", 
     "Farmer Integration",
-    "Mill Strategy Decision",  # New
-    "Toll Processing Mgmt",    # New
-    "Mill Operations"          # New
+    "🔄 Toll Processing Management",  # NEW
+    "🏭 Mill Operations Dashboard"    # NEW
 ])
+
 if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
 elif app_mode == "Farmer Integration":
     page_farmer_integration()
-elif app_mode == "Mill Strategy Decision":
-    page_mill_strategy_decision()
-elif app_mode == "Toll Processing Mgmt":
+elif app_mode == "🔄 Toll Processing Management":  # NEW
     page_toll_processing_management()
-elif app_mode == "Mill Operations":
+elif app_mode == "🏭 Mill Operations Dashboard":  # NEW
     page_mill_operations()
 
 
