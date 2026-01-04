@@ -676,67 +676,6 @@ def page_dashboard():
         else:
             st.info("Prices expected to remain stable")
     
-    with col_bid:
-        st.subheader("💪 Digital Bidding")
-        
-        with st.form("tender_form"):
-            req_tons = st.number_input("Required Tons", 100, 2000, 500)
-            req_date = st.date_input("Delivery Date", datetime.today() + timedelta(days=14))
-            submitted = st.form_submit_button("Post Tender")
-            
-            if submitted:
-                st.success(f"Tender for {req_tons} tons posted!")
-        
-        st.markdown("#### Live Bids")
-        bids = []
-        for i in range(8):
-            supplier = df_suppliers.sample(1).iloc[0]
-            base = current_price + np.random.uniform(2, 5)
-            bids.append({
-                'Supplier': supplier['Supplier_Name'],
-                'Location': supplier['Location'],
-                'Quality': supplier['Quality_Rating'],
-                'Bid (PKR/Kg)': round(base, 2)
-            })
-        
-        df_bids = pd.DataFrame(bids).sort_values('Bid (PKR/Kg)')
-        st.dataframe(df_bids, hide_index=True)
-        
-        if len(df_bids) > 0:
-            best_bid = df_bids['Bid (PKR/Kg)'].min()
-            st.metric("Best Bid", f"{best_bid:.2f} PKR/Kg")
-
-def page_supplier_network():
-    """Supplier Network Page."""
-    st.title("🌐 Supplier Network & Vetting")
-    st.markdown(f"### Expanding from 1-5 to {len(df_suppliers)} competing millers")
-    
-    col_filt, col_table = st.columns([1, 3])
-    
-    with col_filt:
-        st.markdown("#### Filter Network")
-        locations = st.multiselect("Location:", df_suppliers['Location'].unique(), 
-                                  default=df_suppliers['Location'].unique())
-        min_rating = st.slider("Min Quality:", 2.5, 5.0, 3.0, 0.1)
-        max_cap = st.slider("Max Capacity:", 50, 500, 250, 10)
-    
-    with col_table:
-        filtered = df_suppliers[
-            (df_suppliers['Location'].isin(locations)) &
-            (df_suppliers['Quality_Rating'] >= min_rating) &
-            (df_suppliers['Max_Capacity_Tons'] <= max_cap)
-        ]
-        
-        st.markdown(f"#### Verified Millers ({len(filtered)} found)")
-        st.dataframe(
-            filtered[['Supplier_Name', 'Location', 'Max_Capacity_Tons', 'Quality_Rating', 'On_Contract']],
-            column_config={
-                "On_Contract": "Existing Supplier?",
-                "Quality_Rating": st.column_config.ProgressColumn(min_value=2.5, max_value=5.0)
-            },
-            hide_index=True
-        )
-
 def page_farmer_integration():
     """Page 3: Farmer Alliance Integration Platform."""
     
@@ -1092,6 +1031,777 @@ def page_farmer_integration():
     • **Zero Capital:** Unilever doesn't finance inputs, only facilitates
     • **Social Collateral:** Groups guarantee each other's quality
     """)
+
+def page_supplier_network_bidding():
+    """Supplier Network with Digital Bidding"""
+    st.title("🌐 Supplier Network & Digital Bidding")
+    st.markdown("### Manage Mills & Run Digital Tenders")
+    
+    # Create tabs: Supplier Network and Digital Bidding
+    tab1, tab2 = st.tabs(["📋 Supplier Network", "💪 Digital Bidding"])
+    
+    with tab1:
+        # --- Supplier Network Section ---
+        col_filt, col_table = st.columns([1, 3])
+        
+        with col_filt:
+            st.markdown("#### Filter Network")
+            df_suppliers = generate_supplier_data()
+            locations = st.multiselect("Location:", df_suppliers['Location'].unique(), 
+                                      default=df_suppliers['Location'].unique())
+            min_rating = st.slider("Min Quality:", 2.5, 5.0, 3.0, 0.1)
+            max_cap = st.slider("Max Capacity:", 50, 500, 250, 10)
+        
+        with col_table:
+            filtered = df_suppliers[
+                (df_suppliers['Location'].isin(locations)) &
+                (df_suppliers['Quality_Rating'] >= min_rating) &
+                (df_suppliers['Max_Capacity_Tons'] <= max_cap)
+            ]
+            
+            st.markdown(f"#### Verified Millers ({len(filtered)} found)")
+            st.dataframe(
+                filtered[['Supplier_Name', 'Location', 'Max_Capacity_Tons', 'Quality_Rating', 'On_Contract']],
+                column_config={
+                    "On_Contract": "Existing Supplier?",
+                    "Quality_Rating": st.column_config.ProgressColumn(min_value=2.5, max_value=5.0)
+                },
+                hide_index=True
+            )
+        
+        # Supplier Performance Metrics
+        st.markdown("---")
+        st.subheader("📊 Supplier Performance")
+        
+        col_perf1, col_perf2, col_perf3 = st.columns(3)
+        
+        with col_perf1:
+            avg_rating = df_suppliers['Quality_Rating'].mean()
+            st.metric("Avg Quality Rating", f"{avg_rating:.1f}/5.0")
+        
+        with col_perf2:
+            total_capacity = df_suppliers['Max_Capacity_Tons'].sum()
+            st.metric("Total Capacity", f"{total_capacity:,} TPD")
+        
+        with col_perf3:
+            on_contract = df_suppliers['On_Contract'].sum()
+            st.metric("On Contract", f"{on_contract} mills")
+    
+    with tab2:
+        # --- Digital Bidding Section (Moved from Dashboard) ---
+        st.subheader("💪 Digital Bidding Platform")
+        
+        # Tender Creation Form
+        with st.form("tender_form"):
+            st.markdown("#### 🚀 Create New Tender")
+            
+            col_req, col_loc, col_date = st.columns(3)
+            
+            with col_req:
+                req_tons = st.number_input("Required Tons", 100, 5000, 1000, 100)
+                flour_type = st.selectbox("Flour Type", 
+                                         ["Noodle Flour", "Bread Flour", "All-Purpose"])
+            
+            with col_loc:
+                delivery_location = st.selectbox("Delivery Location", 
+                                                ["Phool Nagar", "Rahim Yar Khan", "Lahore", "Karachi"])
+                incoterm = st.selectbox("Incoterm", ["EXW Mill", "DAP Factory"])
+            
+            with col_date:
+                delivery_date = st.date_input("Delivery Date", 
+                                             datetime.today() + timedelta(days=14))
+                bid_close = st.date_input("Bid Closing", 
+                                         datetime.today() + timedelta(days=7))
+            
+            # Quality Specifications
+            st.markdown("##### Quality Specifications")
+            col_spec1, col_spec2, col_spec3 = st.columns(3)
+            
+            with col_spec1:
+                min_protein = st.slider("Min Protein %", 10.0, 14.0, 11.5, 0.1)
+            with col_spec2:
+                max_moisture = st.slider("Max Moisture %", 10.0, 14.0, 12.0, 0.1)
+            with col_spec3:
+                max_ash = st.slider("Max Ash %", 0.3, 0.7, 0.48, 0.01)
+            
+            # Terms and Conditions
+            st.markdown("##### Terms & Conditions")
+            payment_terms = st.selectbox("Payment Terms", 
+                                        ["30 days after delivery", 
+                                         "15 days after delivery", 
+                                         "7 days after delivery"])
+            
+            penalty_clause = st.checkbox("Include penalty for late delivery (2% per day)")
+            quality_hold = st.checkbox("Quality-based payment hold")
+            
+            submitted = st.form_submit_button("📢 Publish Tender")
+            
+            if submitted:
+                tender_id = f"TNDR-{datetime.now().strftime('%Y%m%d')}-{random.randint(100, 999)}"
+                st.success(f"✅ Tender {tender_id} published successfully!")
+                st.info(f"**Tender Value:** PKR {req_tons * 1000 * current_price:,.0f}")
+                st.info(f"**Bids will close on:** {bid_close}")
+                
+                # Notify suppliers via email/WhatsApp
+                if st.button("📤 Notify All Suppliers"):
+                    st.success("Notification sent to 50+ registered mills!")
+        
+        st.markdown("---")
+        
+        # Live Bids Display
+        st.subheader("🏆 Live Bids")
+        
+        # Generate sample bids
+        bids = []
+        for i in range(8):
+            supplier = df_suppliers.sample(1).iloc[0]
+            base_price = current_price + np.random.uniform(2, 5)
+            
+            # Calculate quality score impact
+            quality_discount = (5 - supplier['Quality_Rating']) * 0.5
+            bid_price = base_price - quality_discount + np.random.normal(0, 0.5)
+            
+            # Delivery capability
+            days_to_deliver = random.randint(7, 21)
+            
+            bids.append({
+                'Supplier': supplier['Supplier_Name'],
+                'Location': supplier['Location'],
+                'Quality': supplier['Quality_Rating'],
+                'Capacity': supplier['Max_Capacity_Tons'],
+                'Bid (PKR/Kg)': round(bid_price, 2),
+                'Delivery Days': days_to_deliver,
+                'Bid Score': round(100 - (bid_price - current_price) * 10, 1)
+            })
+        
+        df_bids = pd.DataFrame(bids).sort_values('Bid (PKR/Kg)')
+        
+        # Add selection column
+        df_bids['Select'] = False
+        edited_df = st.data_editor(
+            df_bids,
+            column_config={
+                "Select": st.column_config.CheckboxColumn("Select"),
+                "Quality": st.column_config.ProgressColumn(min_value=2.5, max_value=5.0),
+                "Bid Score": st.column_config.ProgressColumn(min_value=0, max_value=100)
+            },
+            hide_index=True,
+            use_container_width=True
+        )
+        
+        # Award Contract Button
+        if edited_df['Select'].any():
+            selected_bid = edited_df[edited_df['Select']].iloc[0]
+            
+            col_award, col_details = st.columns([1, 3])
+            
+            with col_award:
+                if st.button("🏆 Award Contract", type="primary", use_container_width=True):
+                    st.success(f"Contract awarded to {selected_bid['Supplier']}!")
+                    st.balloons()
+                    
+                    # Generate contract
+                    contract_id = f"CON-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+                    
+                    with st.expander("📄 View Contract Details", expanded=True):
+                        st.markdown(f"""
+                        ### 📄 PROCUREMENT CONTRACT
+                        
+                        **Contract ID:** {contract_id}
+                        **Supplier:** {selected_bid['Supplier']}
+                        **Date:** {datetime.now().strftime('%Y-%m-%d')}
+                        
+                        ---
+                        
+                        **TERMS:**
+                        - Quantity: {req_tons} tons
+                        - Price: PKR {selected_bid['Bid (PKR/Kg)']}/kg
+                        - Delivery: Within {selected_bid['Delivery Days']} days
+                        - Location: {delivery_location}
+                        - Payment: {payment_terms}
+                        
+                        **QUALITY SPECS:**
+                        • Protein: ≥{min_protein}%
+                        • Moisture: ≤{max_moisture}%
+                        • Ash: ≤{max_ash}%
+                        
+                        **Total Value:** PKR {req_tons * 1000 * selected_bid['Bid (PKR/Kg)']:,.0f}
+                        """)
+            
+            with col_details:
+                st.info(f"**Selected:** {selected_bid['Supplier']}")
+                st.write(f"**Price:** PKR {selected_bid['Bid (PKR/Kg)']}/kg")
+                st.write(f"**Quality Rating:** {selected_bid['Quality']}/5.0")
+                st.write(f"**Delivery:** {selected_bid['Delivery Days']} days")
+        
+        if len(df_bids) > 0:
+            best_bid = df_bids['Bid (PKR/Kg)'].min()
+            worst_bid = df_bids['Bid (PKR/Kg)'].max()
+            
+            col_best, col_worst, col_avg = st.columns(3)
+            
+            with col_best:
+                st.metric("Best Bid", f"{best_bid:.2f} PKR/Kg")
+            with col_worst:
+                st.metric("Worst Bid", f"{worst_bid:.2f} PKR/Kg")
+            with col_avg:
+                avg_bid = df_bids['Bid (PKR/Kg)'].mean()
+                st.metric("Avg Bid", f"{avg_bid:.2f} PKR/Kg")
+        
+        # Tender History
+        st.markdown("---")
+        st.subheader("📜 Tender History")
+        
+        # Generate tender history
+        tender_history = []
+        for i in range(5):
+            supplier = df_suppliers.sample(1).iloc[0]
+            tender_history.append({
+                'Tender ID': f'TNDR-2024-{i+1:03d}',
+                'Date': (datetime.today() - timedelta(days=i*7)).strftime('%Y-%m-%d'),
+                'Volume': f"{random.randint(500, 2000)} tons",
+                'Winner': supplier['Supplier_Name'],
+                'Winning Bid': f"PKR {current_price + np.random.uniform(1, 3):.2f}/kg",
+                'Status': random.choice(['Completed', 'In Delivery', 'Quality Check'])
+            })
+        
+        st.dataframe(pd.DataFrame(tender_history), hide_index=True)
+
+def page_supplier_portal():
+    """Supplier/Mill Login Portal for Bidding"""
+    
+    # Initialize session state for login
+    if 'supplier_logged_in' not in st.session_state:
+        st.session_state.supplier_logged_in = False
+    if 'supplier_id' not in st.session_state:
+        st.session_state.supplier_id = None
+    if 'supplier_bids' not in st.session_state:
+        st.session_state.supplier_bids = []
+    
+    # If not logged in, show login page
+    if not st.session_state.supplier_logged_in:
+        show_supplier_login()
+    else:
+        show_supplier_dashboard()
+
+def show_supplier_login():
+    """Display supplier login form"""
+    
+    st.title("👨‍💼 Supplier Portal Login")
+    st.markdown("### For Registered Mills & Suppliers")
+    
+    # Login Form
+    with st.container():
+        col_left, col_right = st.columns([2, 1])
+        
+        with col_left:
+            with st.form("supplier_login"):
+                st.markdown("#### Mill Login")
+                
+                supplier_id = st.text_input("Supplier ID", placeholder="SUP001 or MILL001")
+                password = st.text_input("Password", type="password")
+                
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    login_submitted = st.form_submit_button("🔑 Login", use_container_width=True)
+                with col_btn2:
+                    register_submitted = st.form_submit_button("📝 Register", use_container_width=True)
+                
+                if login_submitted:
+                    # Simple authentication (in real app, use database)
+                    if supplier_id and password == "password123":
+                        st.session_state.supplier_logged_in = True
+                        st.session_state.supplier_id = supplier_id
+                        st.success("Login successful! Redirecting...")
+                        st.rerun()
+                    else:
+                        st.error("Invalid credentials. Try: SUP001 / password123")
+                
+                if register_submitted:
+                    st.info("Registration would redirect to Unilever procurement team")
+                    st.write("Email: procurement@unilever.pk")
+                    st.write("Phone: +92 51 111 111 111")
+        
+        with col_right:
+            st.markdown("#### Demo Credentials")
+            st.info("""
+            **For Demo:**
+            - Supplier ID: `SUP001`
+            - Password: `password123`
+            
+            **Or try:**
+            - SUP002, SUP003, etc.
+            - MILL001, MILL002, etc.
+            """)
+            
+            st.markdown("---")
+            st.markdown("#### 📱 Quick Links")
+            st.write("• Download Bid Documents")
+            st.write("• View Contract Templates")
+            st.write("• Quality Standards PDF")
+            st.write("• Payment Terms")
+    
+    # Supplier Benefits Section
+    st.markdown("---")
+    st.subheader("🤝 Why Register as a Supplier?")
+    
+    col_ben1, col_ben2, col_ben3 = st.columns(3)
+    
+    with col_ben1:
+        st.markdown("##### 💰 Guaranteed Business")
+        st.write("• Regular tenders")
+        st.write("• Predictable cash flow")
+        st.write("• Volume commitments")
+    
+    with col_ben2:
+        st.markdown("##### 🚀 Digital Process")
+        st.write("• Online bidding")
+        st.write("• Digital contracts")
+        st.write("• Online payments")
+    
+    with col_ben3:
+        st.markdown("##### 📈 Growth Opportunities")
+        st.write("• Priority for new projects")
+        st.write("• Training & development")
+        st.write("• Technology sharing")
+    
+    # Registration Form
+    with st.expander("📋 New Supplier Registration Form"):
+        with st.form("new_supplier_form"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                mill_name = st.text_input("Mill Name")
+                contact_person = st.text_input("Contact Person")
+                email = st.text_input("Email")
+                phone = st.text_input("Phone")
+            
+            with col2:
+                location = st.selectbox("Location", ["Punjab", "Sindh", "KPK", "Balochistan"])
+                capacity = st.number_input("Daily Capacity (Tons)", 10, 1000, 100)
+                years_operation = st.number_input("Years in Operation", 1, 50, 5)
+                certs = st.multiselect("Certifications", ["PSQCA", "ISO 9001", "HACCP", "GMP"])
+            
+            # Upload documents
+            st.markdown("##### Required Documents")
+            col_doc1, col_doc2, col_doc3 = st.columns(3)
+            with col_doc1:
+                st.file_uploader("Business Registration", type=["pdf", "jpg"])
+            with col_doc2:
+                st.file_uploader("NTN Certificate", type=["pdf", "jpg"])
+            with col_doc3:
+                st.file_uploader("Mill Photos", type=["jpg", "png"], accept_multiple_files=True)
+            
+            submitted = st.form_submit_button("Submit Registration")
+            if submitted:
+                st.success("Registration submitted! Unilever will contact you within 7 working days.")
+
+def show_supplier_dashboard():
+    """Display supplier dashboard after login"""
+    
+    # Get supplier data
+    df_suppliers = generate_supplier_data()
+    supplier_id = st.session_state.supplier_id
+    
+    # Find supplier in data
+    supplier_data = df_suppliers[df_suppliers['Supplier_ID'] == supplier_id]
+    
+    if len(supplier_data) == 0:
+        # Create demo supplier if not found
+        supplier_name = f"Demo Supplier {supplier_id}"
+        supplier_location = "Punjab"
+        supplier_rating = 4.2
+        supplier_capacity = 200
+        on_contract = True
+    else:
+        supplier_name = supplier_data.iloc[0]['Supplier_Name']
+        supplier_location = supplier_data.iloc[0]['Location']
+        supplier_rating = supplier_data.iloc[0]['Quality_Rating']
+        supplier_capacity = supplier_data.iloc[0]['Max_Capacity_Tons']
+        on_contract = supplier_data.iloc[0]['On_Contract']
+    
+    # Header with logout
+    col_header, col_logout = st.columns([4, 1])
+    with col_header:
+        st.title(f"👨‍💼 Welcome, {supplier_name}")
+        st.markdown(f"### Supplier Portal • {supplier_id}")
+    with col_logout:
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state.supplier_logged_in = False
+            st.session_state.supplier_id = None
+            st.rerun()
+    
+    # Supplier Info Bar
+    col_info1, col_info2, col_info3, col_info4 = st.columns(4)
+    
+    with col_info1:
+        st.metric("Quality Rating", f"{supplier_rating}/5.0")
+    with col_info2:
+        st.metric("Capacity", f"{supplier_capacity} TPD")
+    with col_info3:
+        status = "🟢 On Contract" if on_contract else "🟡 Pending"
+        st.metric("Status", status)
+    with col_info4:
+        # Calculate performance score
+        perf_score = min(100, int(supplier_rating * 20))
+        st.metric("Performance", f"{perf_score}%")
+    
+    st.markdown("---")
+    
+    # Tabs for different functions
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🏆 Active Tenders", 
+        "📊 My Bids", 
+        "📝 My Contracts",
+        "🏢 My Profile"
+    ])
+    
+    with tab1:
+        # Active Tenders for Bidding
+        st.subheader("🏆 Active Tenders")
+        
+        # Generate active tenders
+        active_tenders = generate_active_tenders()
+        
+        for i, tender in enumerate(active_tenders):
+            with st.container():
+                col_t1, col_t2, col_t3 = st.columns([3, 2, 1])
+                
+                with col_t1:
+                    st.markdown(f"**{tender['Title']}**")
+                    st.write(f"📦 {tender['Volume']} • 📍 {tender['Location']}")
+                    st.write(f"📅 Closes: {tender['Closing']}")
+                
+                with col_t2:
+                    st.write(f"💰 Est. Value: {tender['Value']}")
+                    st.write(f"🎯 Quality: {tender['Quality']}")
+                
+                with col_t3:
+                    if st.button("Bid Now", key=f"bid_{i}", use_container_width=True):
+                        st.session_state.selected_tender = tender
+                        st.rerun()
+        
+        # If tender selected, show bidding form
+        if 'selected_tender' in st.session_state:
+            show_bidding_form(st.session_state.selected_tender)
+    
+    with tab2:
+        # My Bids History
+        st.subheader("📊 My Bid History")
+        
+        # Generate bid history
+        bid_history = [
+            {
+                'Tender': 'TNDR-2024-015 - Noodle Flour',
+                'Date': '2024-06-15',
+                'My Bid': 'PKR 103.50/kg',
+                'Winning Bid': 'PKR 102.80/kg',
+                'Status': 'Lost',
+                'Rank': '2nd'
+            },
+            {
+                'Tender': 'TNDR-2024-014 - Bread Flour',
+                'Date': '2024-06-10',
+                'My Bid': 'PKR 101.20/kg',
+                'Winning Bid': 'PKR 101.20/kg',
+                'Status': 'Won',
+                'Rank': '1st'
+            },
+            {
+                'Tender': 'TNDR-2024-013 - All Purpose',
+                'Date': '2024-06-05',
+                'My Bid': 'PKR 104.50/kg',
+                'Winning Bid': 'PKR 103.00/kg',
+                'Status': 'Lost',
+                'Rank': '3rd'
+            }
+        ]
+        
+        for bid in bid_history:
+            col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns([3, 2, 2, 1, 1])
+            with col_b1:
+                st.write(bid['Tender'])
+            with col_b2:
+                st.write(bid['My Bid'])
+            with col_b3:
+                st.write(bid['Winning Bid'])
+            with col_b4:
+                if bid['Status'] == 'Won':
+                    st.success("Won")
+                else:
+                    st.error("Lost")
+            with col_b5:
+                st.write(bid['Rank'])
+        
+        # Bid Analytics
+        st.markdown("---")
+        st.subheader("📈 Bid Analytics")
+        
+        col_ana1, col_ana2, col_ana3 = st.columns(3)
+        
+        with col_ana1:
+            st.metric("Win Rate", "33%", "-5% from target")
+        with col_ana2:
+            st.metric("Avg Bid", "PKR 103.07/kg", "+0.82 vs market")
+        with col_ana3:
+            st.metric("Response Time", "4.2 hours", "Industry: 8 hours")
+    
+    with tab3:
+        # My Contracts
+        st.subheader("📝 Active Contracts")
+        
+        contracts = [
+            {
+                'Contract ID': 'CON-2024-001',
+                'Product': 'Noodle Flour',
+                'Volume': '500 tons',
+                'Price': 'PKR 102.50/kg',
+                'Status': '🟢 Active',
+                'Completion': '65%'
+            },
+            {
+                'Contract ID': 'CON-2024-002',
+                'Product': 'Bread Flour',
+                'Volume': '300 tons',
+                'Price': 'PKR 101.80/kg',
+                'Status': '🟢 Active',
+                'Completion': '30%'
+            },
+            {
+                'Contract ID': 'CON-2023-012',
+                'Product': 'All Purpose',
+                'Volume': '1000 tons',
+                'Price': 'PKR 103.20/kg',
+                'Status': '✅ Completed',
+                'Completion': '100%'
+            }
+        ]
+        
+        for contract in contracts:
+            with st.expander(f"{contract['Contract ID']} - {contract['Product']}"):
+                col_c1, col_c2, col_c3 = st.columns(3)
+                
+                with col_c1:
+                    st.write(f"**Volume:** {contract['Volume']}")
+                    st.write(f"**Price:** {contract['Price']}")
+                
+                with col_c2:
+                    st.write(f"**Status:** {contract['Status']}")
+                    st.progress(int(contract['Completion'].replace('%', '')) / 100)
+                    st.caption(f"Completed: {contract['Completion']}")
+                
+                with col_c3:
+                    if "Active" in contract['Status']:
+                        if st.button("Update Progress", key=f"update_{contract['Contract ID']}"):
+                            st.info("Progress update form would open")
+                    else:
+                        if st.button("View Invoice", key=f"invoice_{contract['Contract ID']}"):
+                            st.info("Invoice would download")
+        
+        # Payment Status
+        st.markdown("---")
+        st.subheader("💰 Payment Status")
+        
+        payments = [
+            {'Invoice': 'INV-2024-001', 'Amount': 'PKR 512,500', 'Due Date': '2024-06-30', 'Status': 'Pending'},
+            {'Invoice': 'INV-2024-002', 'Amount': 'PKR 305,400', 'Due Date': '2024-07-15', 'Status': 'Pending'},
+            {'Invoice': 'INV-2023-012', 'Amount': 'PKR 1,032,000', 'Due Date': '2024-05-30', 'Status': 'Paid'},
+        ]
+        
+        for payment in payments:
+            col_p1, col_p2, col_p3, col_p4 = st.columns([2, 2, 2, 1])
+            with col_p1:
+                st.write(payment['Invoice'])
+            with col_p2:
+                st.write(payment['Amount'])
+            with col_p3:
+                st.write(payment['Due Date'])
+            with col_p4:
+                if payment['Status'] == 'Paid':
+                    st.success("Paid")
+                else:
+                    st.warning("Pending")
+    
+    with tab4:
+        # Supplier Profile
+        st.subheader("🏢 Supplier Profile")
+        
+        col_prof1, col_prof2 = st.columns([2, 1])
+        
+        with col_prof1:
+            with st.form("supplier_profile"):
+                st.markdown("##### Company Information")
+                
+                company_name = st.text_input("Company Name", value=supplier_name)
+                registration_no = st.text_input("Registration No.", value="ABC-123456")
+                tax_no = st.text_input("NTN No.", value="1234567-8")
+                
+                st.markdown("##### Contact Information")
+                col_cont1, col_cont2 = st.columns(2)
+                with col_cont1:
+                    contact_person = st.text_input("Contact Person", value="Ahmed Khan")
+                    email = st.text_input("Email", value="contact@mill.com")
+                with col_cont2:
+                    phone = st.text_input("Phone", value="0300-1234567")
+                    address = st.text_area("Address", value="Industrial Area, Punjab")
+                
+                st.markdown("##### Mill Specifications")
+                col_spec1, col_spec2 = st.columns(2)
+                with col_spec1:
+                    daily_capacity = st.number_input("Daily Capacity (Tons)", value=supplier_capacity)
+                    storage_capacity = st.number_input("Storage (Tons)", value=500)
+                with col_spec2:
+                    year_established = st.number_input("Year Established", value=2010)
+                    employee_count = st.number_input("Employees", value=50)
+                
+                submitted = st.form_submit_button("Update Profile")
+                if submitted:
+                    st.success("Profile updated successfully!")
+        
+        with col_prof2:
+            st.markdown("##### 📋 Documents")
+            st.write("• Business Registration")
+            st.write("• NTN Certificate")
+            st.write("• PSQCA License")
+            st.write("• Bank Details")
+            
+            st.markdown("---")
+            st.markdown("##### ⚙️ Settings")
+            st.button("Change Password")
+            st.button("Notification Settings")
+            st.button("Download Reports")
+
+def show_bidding_form(tender):
+    """Display bidding form for selected tender"""
+    
+    st.markdown("---")
+    st.subheader(f"🏆 Bidding for: {tender['Title']}")
+    
+    with st.form("submit_bid"):
+        col_bid1, col_bid2 = st.columns(2)
+        
+        with col_bid1:
+            st.markdown("##### Bid Details")
+            bid_price = st.number_input(
+                "Your Bid Price (PKR/kg)", 
+                min_value=90.0, 
+                max_value=120.0, 
+                value=float(tender['BasePrice']),
+                step=0.1
+            )
+            
+            delivery_days = st.slider(
+                "Delivery in Days", 
+                min_value=7, 
+                max_value=30, 
+                value=14
+            )
+            
+            quality_commitment = st.selectbox(
+                "Quality Commitment", 
+                ["Standard", "Premium (+1% protein)", "Guaranteed Specs"]
+            )
+        
+        with col_bid2:
+            st.markdown("##### Capacity & Terms")
+            
+            max_capacity = st.number_input(
+                "Max Capacity for this tender (Tons)",
+                min_value=100,
+                max_value=1000,
+                value=500,
+                step=10
+            )
+            
+            payment_terms = st.selectbox(
+                "Preferred Payment Terms",
+                ["30 days", "45 days", "60 days", "Immediate against delivery"]
+            )
+            
+            additional_terms = st.text_area(
+                "Additional Terms/Comments",
+                placeholder="Any special conditions or notes..."
+            )
+        
+        # Upload required documents
+        st.markdown("##### Required Documents")
+        col_doc1, col_doc2 = st.columns(2)
+        with col_doc1:
+            quotation = st.file_uploader("Upload Quotation", type=["pdf", "docx"])
+        with col_doc2:
+            capacity_proof = st.file_uploader("Capacity Proof", type=["pdf", "jpg"])
+        
+        # Terms acceptance
+        accept_terms = st.checkbox("I accept all terms and conditions")
+        understand_quality = st.checkbox("I understand and commit to quality specifications")
+        
+        submitted = st.form_submit_button("📤 Submit Bid", type="primary")
+        
+        if submitted:
+            if not accept_terms or not understand_quality:
+                st.error("Please accept all terms to submit bid")
+            else:
+                # Save bid to session state
+                bid_details = {
+                    'tender_id': tender['ID'],
+                    'tender_title': tender['Title'],
+                    'bid_price': bid_price,
+                    'delivery_days': delivery_days,
+                    'submission_date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                    'status': 'Submitted'
+                }
+                
+                st.session_state.supplier_bids.append(bid_details)
+                
+                st.success("✅ Bid submitted successfully!")
+                st.balloons()
+                st.info(f"**Bid Reference:** BID-{datetime.now().strftime('%Y%m%d%H%M%S')}")
+                st.info(f"**You will be notified when:**\n• Tender closes\n• Bid is evaluated\n• Results are announced")
+                
+                if st.button("← Back to Tenders"):
+                    del st.session_state.selected_tender
+                    st.rerun()
+
+def generate_active_tenders():
+    """Generate sample active tenders"""
+    
+    base_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-1]
+    
+    tenders = [
+        {
+            'ID': 'TNDR-2024-016',
+            'Title': 'Noodle Flour - 1000 Tons',
+            'Volume': '1,000 tons',
+            'Location': 'Phool Nagar',
+            'Closing': '2024-06-30',
+            'Value': f'PKR {1000*1000*base_price:,.0f}',
+            'Quality': 'Protein ≥11.5%',
+            'BasePrice': base_price
+        },
+        {
+            'ID': 'TNDR-2024-017',
+            'Title': 'Bread Flour - 500 Tons',
+            'Volume': '500 tons',
+            'Location': 'Rahim Yar Khan',
+            'Closing': '2024-07-05',
+            'Value': f'PKR {500*1000*base_price:,.0f}',
+            'Quality': 'Ash ≤0.50%',
+            'BasePrice': base_price
+        },
+        {
+            'ID': 'TNDR-2024-018',
+            'Title': 'All Purpose Flour - 750 Tons',
+            'Volume': '750 tons',
+            'Location': 'Lahore',
+            'Closing': '2024-07-10',
+            'Value': f'PKR {750*1000*base_price:,.0f}',
+            'Quality': 'Standard Specs',
+            'BasePrice': base_price
+        }
+    ]
+    
+    return tenders
+
 def page_toll_processing_management():
     """Toll Processing Management Platform"""
     st.title("🤝 Toll Processing Management")
@@ -1704,22 +2414,25 @@ def page_mill_operations():
 # --- MAIN APP LOGIC (Sidebar Navigation) ---
 st.sidebar.title("UniGrain Connect")
 app_mode = st.sidebar.radio("Navigation", [
-    "Dashboard & Bidding", 
-    "Supplier Network & Vetting", 
+    "Dashboard", 
+    "Supplier Network & Bidding",  # Changed name
     "Farmer Integration",
-    "🔄 Toll Processing Management",  # NEW
-    "🏭 Mill Operations Dashboard"    # NEW
+    "🔄 Toll Processing Management",
+    "🏭 Mill Operations Dashboard",
+    "👨‍💼 Supplier Portal"  # NEW: For mills to login and bid
 ])
 
-if app_mode == "Dashboard & Bidding":
+if app_mode == "Dashboard":
     page_dashboard()
-elif app_mode == "Supplier Network & Vetting":
-    page_supplier_network()
+elif app_mode == "Supplier Network & Bidding":  # Changed name
+    page_supplier_network_bidding()  # New function
 elif app_mode == "Farmer Integration":
     page_farmer_integration()
-elif app_mode == "🔄 Toll Processing Management":  # NEW
+elif app_mode == "🔄 Toll Processing Management":
     page_toll_processing_management()
-elif app_mode == "🏭 Mill Operations Dashboard":  # NEW
+elif app_mode == "🏭 Mill Operations Dashboard":
     page_mill_operations()
+elif app_mode == "👨‍💼 Supplier Portal":  # NEW
+    page_supplier_portal()  # New function
 
 
