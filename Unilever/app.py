@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px 
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
 
@@ -795,4 +796,5 @@ if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
+
 
