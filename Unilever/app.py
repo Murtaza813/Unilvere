@@ -175,34 +175,337 @@ def regression_target_price(df_tenders, df_suppliers, current_market_price, requ
     
     return target_price
 
-# FIX THIS FUNCTION:
-def simulate_storage_strategy(df_market, annual_need_tons, holding_cost_pk_month):
+# --- ENHANCED STORAGE CALCULATOR SECTION ---
+
+def simulate_storage_strategy(df_market, annual_need_tons, holding_cost_pk_month, strategy="rental", capex_years=7):
     """
-    CORRECTED VERSION
+    Enhanced to support all three strategic options from the report.
     """
-    # Get harvest season prices (April-May)
-    df_harvest = df_market[df_market['Month'].isin([4, 5])]
-    avg_low_price = df_harvest['Mandi_Price_PKR_per_Kg'].mean()
+    df_market['Year'] = df_market['Date'].dt.year
+    df_market['Month'] = df_market['Date'].dt.month
     
-    # Get lean season prices (Oct-Dec)
-    df_lean = df_market[df_market['Month'].isin([10, 11, 12])]
-    avg_high_price = df_lean['Mandi_Price_PKR_per_Kg'].mean()
+    # Use data from the last 2 full years
+    last_full_year = datetime.today().year - 1
+    df_sim = df_market[df_market['Year'] >= last_full_year - 1].copy()
     
-    # Calculate savings
-    gross_saving_pk_kg = avg_high_price - avg_low_price  # POSITIVE!
-    holding_cost_total_pk_kg = holding_cost_pk_month * 6  # 6 months
-    net_saving_pk_kg = gross_saving_pk_kg - holding_cost_total_pk_kg
+    # Identify average prices by season
+    df_low = df_sim[df_sim['Month'].isin([3, 4, 5])]  # Harvest season (Mar-Apr-May)
+    df_high = df_sim[df_sim['Month'].isin([10, 11, 12])]  # Lean season (Oct-Nov-Dec)
     
-    # Calculate total
-    storage_volume_kg = annual_need_tons * 1000
-    total_savings = net_saving_pk_kg * storage_volume_kg
+    avg_low_price = df_low['Mandi_Price_PKR_per_Kg'].mean()
+    avg_high_price = df_high['Mandi_Price_PKR_per_Kg'].mean()
+    
+    # Core arbitrage calculation
+    gross_saving_pk_kg = avg_high_price - avg_low_price
+    holding_months = 6  # May -> November storage
+    holding_cost_total_pk_kg = holding_cost_pk_month * holding_months
+    
+    # Strategy-specific costs
+    if strategy == "rental":
+        # Option A: Rental model - high recurring costs
+        annual_storage_cost_pk_kg = holding_cost_pk_month * 12  # Full year cost
+        capex_cost_pk_kg = 0
+    elif strategy == "ownership":
+        # Option B: Full ownership - high CapEx, lower O&M
+        # PKR 15,346 per MT installed capacity = PKR 15.35 per kg
+        capex_per_kg = 15.35  # PKR per kg capacity
+        annual_capex_cost_pk_kg = capex_per_kg / capex_years
+        # Lower O&M cost vs rental (approx 30% of rental)
+        annual_storage_cost_pk_kg = holding_cost_pk_month * 12 * 0.3
+        capex_cost_pk_kg = annual_capex_cost_pk_kg
+    elif strategy == "hybrid":
+        # Option C: Hybrid - CapEx + fixed O&M
+        capex_per_kg = 15.35  # Same as ownership
+        annual_capex_cost_pk_kg = capex_per_kg / capex_years
+        # Fixed O&M fee (approx PKR 5 per kg annually from PKR 50M for 10,000 MT)
+        fixed_om_pk_kg = 5.0  # PKR per kg per year
+        annual_storage_cost_pk_kg = fixed_om_pk_kg
+        capex_cost_pk_kg = annual_capex_cost_pk_kg
+    else:
+        annual_storage_cost_pk_kg = holding_cost_pk_month * 12
+        capex_cost_pk_kg = 0
+    
+    # Net saving per kg
+    net_saving_pk_kg = gross_saving_pk_kg - holding_cost_total_pk_kg - annual_storage_cost_pk_kg - capex_cost_pk_kg
     
     return {
         'Net_Saving_PKR_per_Kg': net_saving_pk_kg,
         'Gross_Saving_PKR_per_Kg': gross_saving_pk_kg,
-        'Avg_Low_Price': avg_low_price,  # Should be ~90
-        'Avg_High_Price': avg_high_price,  # Should be ~115
-        'Total_Savings_PKR': total_savings  # Positive number!
+        'Avg_Low_Price': avg_low_price,
+        'Avg_High_Price': avg_high_price,
+        'Harvest_Season': "March-May",
+        'Lean_Season': "October-December",
+        'Price_Spread_PKR_per_Kg': gross_saving_pk_kg,
+        'Strategy': strategy.upper()
+    }
+
+# --- ENHANCED STORAGE CALCULATOR UI ---
+
+def enhanced_storage_calculator():
+    """Enhanced calculator with all three strategic options."""
+    st.subheader("🏦 Strategic Storage Options Calculator")
+    st.caption("Compare Rental, Ownership, and Hybrid models for maximum procurement savings")
+    
+    # Three-column layout for strategy comparison
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("##### 📋 Strategy Inputs")
+        annual_need = st.number_input(
+            "Annual Flour Need (Tons)",
+            min_value=5000, 
+            max_value=30000, 
+            value=10000, 
+            step=1000,
+            help="Unilever's total annual wheat requirement"
+        )
+        
+        storage_coverage = st.slider(
+            "Silo Coverage (% of Annual Need)",
+            min_value=10, 
+            max_value=80, 
+            value=50, 
+            step=5,
+            help="What percentage to store during harvest season"
+        )
+        
+        analysis_years = st.slider(
+            "Analysis Period (Years)",
+            min_value=1, 
+            max_value=10, 
+            value=7,
+            help="Strategic planning horizon"
+        )
+    
+    with col2:
+        st.markdown("##### ⚙️ Cost Parameters")
+        
+        holding_cost = st.number_input(
+            "Silo Rental Cost (PKR/Kg/Month)",
+            min_value=0.10,
+            max_value=1.50,
+            value=0.50, 
+            format="%.2f",
+            step=0.05,
+            help="Monthly holding cost for rented silos"
+        )
+        
+        working_capital_rate = st.slider(
+            "Working Capital Rate (%)",
+            min_value=5,
+            max_value=25,
+            value=15,
+            step=1,
+            help="Cost of capital for inventory financing"
+        )
+        
+        storage_loss_rate = st.slider(
+            "Storage Loss Rate (%)",
+            min_value=0.1,
+            max_value=3.0,
+            value=1.0,
+            step=0.1,
+            help="Annual loss due to shrinkage, pests, etc."
+        )
+    
+    with col3:
+        st.markdown("##### 🎯 Strategic Choice")
+        strategy = st.radio(
+            "Select Storage Strategy:",
+            ["Rental (Option A)", "Ownership (Option B)", "Hybrid (Option C)"],
+            help="Choose your strategic approach"
+        )
+        
+        # Map to strategy codes
+        strategy_code = "rental"
+        if "Ownership" in strategy:
+            strategy_code = "ownership"
+        elif "Hybrid" in strategy:
+            strategy_code = "hybrid"
+        
+        # Strategy descriptions
+        if strategy_code == "rental":
+            st.info("**Option A - Silo Rental**: No CapEx, High recurring costs. Quick implementation.")
+        elif strategy_code == "ownership":
+            st.info("**Option B - Full Ownership**: High CapEx (PKR 153M), Lower long-term costs.")
+        else:
+            st.info("**Option C - Hybrid Model**: CapEx + Fixed O&M. Balanced risk & control.")
+    
+    st.markdown("---")
+    
+    # Calculate recommended volume
+    recommended_volume_tons = annual_need * (storage_coverage / 100)
+    
+    # Run simulation for selected strategy
+    storage_results = simulate_storage_strategy(
+        df_market,
+        recommended_volume_tons,
+        holding_cost,
+        strategy_code,
+        analysis_years
+    )
+    
+    # Calculate working capital impact
+    inventory_value = recommended_volume_tons * 1000 * storage_results['Avg_Low_Price']
+    working_capital_cost = inventory_value * (working_capital_rate / 100)
+    
+    # Calculate total savings over analysis period
+    annual_savings = storage_results['Net_Saving_PKR_per_Kg'] * recommended_volume_tons * 1000
+    total_savings = annual_savings * analysis_years
+    total_wc_cost = working_capital_cost * analysis_years
+    
+    # Adjust for strategy-specific costs
+    if strategy_code == "ownership":
+        capex = 153460000  # PKR 153.46M for 10,000 MT
+        total_savings -= capex
+    elif strategy_code == "hybrid":
+        capex = 153460000
+        annual_om = 50000000  # PKR 50M/year O&M fee
+        total_savings -= (capex + (annual_om * analysis_years))
+    
+    # Net savings after all costs
+    net_savings = total_savings - total_wc_cost
+    
+    # Display Results
+    st.subheader("📊 Financial Impact Analysis")
+    
+    # Key Metrics
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    
+    with metric_col1:
+        st.metric(
+            "Price Spread (Harvest vs Lean)",
+            f"PKR {storage_results['Price_Spread_PKR_per_Kg']:.2f}/kg",
+            delta=f"{storage_results['Harvest_Season']} → {storage_results['Lean_Season']}"
+        )
+    
+    with metric_col2:
+        st.metric(
+            "Recommended Storage Volume",
+            f"{int(recommended_volume_tons):,} Tons",
+            delta=f"{storage_coverage}% of Annual Need"
+        )
+    
+    with metric_col3:
+        savings_color = "normal" if net_savings > 0 else "inverse"
+        st.metric(
+            f"Net Savings over {analysis_years} Years",
+            f"PKR {abs(net_savings)/1_000_000:,.1f}M",
+            delta="Profitable" if net_savings > 0 else "Not Viable",
+            delta_color=savings_color
+        )
+    
+    # Detailed Breakdown
+    st.markdown("##### 💰 Cost-Benefit Breakdown")
+    
+    breakdown_col1, breakdown_col2 = st.columns(2)
+    
+    with breakdown_col1:
+        st.markdown("**Revenue Side (Savings):**")
+        st.write(f"- Gross Price Savings: PKR {storage_results['Gross_Saving_PKR_per_Kg']:.2f}/kg")
+        st.write(f"- Harvest Price: PKR {storage_results['Avg_Low_Price']:.2f}/kg")
+        st.write(f"- Lean Season Price: PKR {storage_results['Avg_High_Price']:.2f}/kg")
+        st.write(f"- Annual Gross Savings: PKR {annual_savings/1_000_000:,.1f}M")
+    
+    with breakdown_col2:
+        st.markdown("**Cost Side:**")
+        if strategy_code == "rental":
+            st.write(f"- Annual Rental Cost: PKR {(holding_cost * 12 * recommended_volume_tons * 1000)/1_000_000:,.1f}M")
+        elif strategy_code == "ownership":
+            st.write(f"- Capital Expenditure: PKR 153.5M (one-time)")
+            st.write(f"- Annual O&M Cost: ~30% of rental")
+        else:  # hybrid
+            st.write(f"- Capital Expenditure: PKR 153.5M (one-time)")
+            st.write(f"- Annual O&M Fee: PKR 50.0M")
+        
+        st.write(f"- Working Capital Cost: PKR {working_capital_cost/1_000_000:,.1f}M/year")
+        st.write(f"- Storage Loss ({storage_loss_rate}%): PKR {(inventory_value * storage_loss_rate/100)/1_000_000:,.1f}M/year")
+    
+    # Strategic Insights
+    st.markdown("---")
+    st.subheader("🎯 Strategic Insights")
+    
+    insight_col1, insight_col2 = st.columns(2)
+    
+    with insight_col1:
+        # Breakeven Analysis
+        if strategy_code == "rental":
+            breakeven = "Immediate (monthly)"
+        elif strategy_code == "ownership":
+            breakeven = f"~{analysis_years} years (depends on utilization)"
+        else:  # hybrid
+            breakeven = "4-5 years (operational breakeven)"
+        
+        st.markdown(f"**📅 Breakeven Timeline:** {breakeven}")
+        
+        # Risk Assessment
+        if strategy_code == "rental":
+            risk_level = "Low"
+            risk_desc = "Flexible, low commitment"
+        elif strategy_code == "ownership":
+            risk_level = "High"
+            risk_desc = "High capital risk, long-term commitment"
+        else:
+            risk_level = "Medium"
+            risk_desc = "Balanced risk profile"
+        
+        st.markdown(f"**⚠️ Risk Level:** {risk_level} - {risk_desc}")
+    
+    with insight_col2:
+        # Strategic Fit
+        if strategy_code == "rental":
+            fit = "Short-term (1-3 years)"
+            recommendation = "Start with rental to test market"
+        elif strategy_code == "ownership":
+            fit = "Long-term (5+ years)"
+            recommendation = "Commit if demand is stable and predictable"
+        else:
+            fit = "Medium-term (3-7 years)"
+            recommendation = "Ideal balance of control and flexibility"
+        
+        st.markdown(f"**🎯 Strategic Fit:** {fit}")
+        st.markdown(f"**💡 Recommendation:** {recommendation}")
+    
+    # Cumulative Savings Chart
+    st.markdown("---")
+    st.subheader("📈 Cumulative Savings Projection")
+    
+    # Generate projection data
+    years = list(range(1, analysis_years + 1))
+    cumulative_savings = []
+    
+    for year in years:
+        year_savings = annual_savings * year
+        
+        # Deduct costs
+        if strategy_code == "ownership" and year == 1:
+            year_savings -= 153460000  # Capex in year 1
+        elif strategy_code == "hybrid":
+            year_savings -= 153460000  # Capex in year 1
+            year_savings -= 50000000 * year  # Annual O&M
+        
+        year_savings -= working_capital_cost * year  # Working capital
+        cumulative_savings.append(year_savings / 1_000_000)  # Convert to millions
+    
+    # Create chart
+    chart_data = pd.DataFrame({
+        'Year': years,
+        'Cumulative Savings (PKR M)': cumulative_savings
+    })
+    
+    st.line_chart(chart_data.set_index('Year'))
+    
+    # Policy Warning
+    st.warning("""
+    **Important:** This analysis assumes stable government procurement policies. 
+    Policy changes (import bans, price controls, subsidy changes) may significantly impact actual savings.
+    """)
+    
+    return {
+        'strategy': strategy,
+        'net_savings': net_savings,
+        'annual_savings': annual_savings,
+        'breakeven_year': 4 if strategy_code == "hybrid" else 1
     }
 
 # --- Data Generation (Run once) ---
@@ -492,3 +795,4 @@ if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
+
