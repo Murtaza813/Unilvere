@@ -188,6 +188,174 @@ def generate_loan_products():
         {'Loan_ID': 'LN003', 'Purpose': 'Equipment', 'Amount_Range': 'PKR 100,000-200,000', 'Interest_Rate': '12%', 'Term': '24 months'},
     ]
     return pd.DataFrame(loans)
+@st.cache_data
+def generate_mill_data():
+    """Generate comprehensive mill data for toll processing"""
+    np.random.seed(45)
+    
+    mill_types = ['Commercial', 'Medium Modern', 'Cooperative', 'Mega Mill']
+    
+    data = []
+    for i in range(1, 31):
+        mill_type = random.choice(mill_types)
+        
+        if mill_type == 'Commercial':
+            capacity = random.randint(200, 500)
+            quality = random.uniform(3.5, 4.8)
+        elif mill_type == 'Medium Modern':
+            capacity = random.randint(100, 200)
+            quality = random.uniform(4.0, 5.0)
+        elif mill_type == 'Cooperative':
+            capacity = random.randint(50, 150)
+            quality = random.uniform(3.0, 4.0)
+        else:  # Mega Mill
+            capacity = random.randint(400, 600)
+            quality = random.uniform(3.8, 4.5)
+        
+        data.append({
+            'Mill_ID': f'MILL{i:03d}',
+            'Mill_Name': f'{mill_type} Mill {i}',
+            'Location': random.choice(['Multan', 'Lahore', 'Faisalabad', 'Karachi', 'Sukkur']),
+            'Mill_Type': mill_type,
+            'Capacity_TPD': capacity,
+            'Quality_Rating': round(quality, 1),
+            'On_Contract': random.choice([True, False]),
+            'Processing_Fee': random.randint(800, 1200),
+            'Last_Audit': (datetime.today() - timedelta(days=random.randint(0, 90))).strftime('%Y-%m-%d'),
+            'Contact_Person': f'Manager {i}',
+            'Phone': f'0300-{random.randint(1000000, 9999999)}'
+        })
+    
+    return pd.DataFrame(data)
+
+@st.cache_data
+def generate_iot_mill_data():
+    """Generate simulated IoT data for mill operations"""
+    np.random.seed(46)
+    
+    # Generate 24 hours of data
+    hours = list(range(24))
+    
+    data = {
+        'hour': hours,
+        'throughput_tph': [random.uniform(3.5, 4.2) for _ in hours],
+        'energy_kwh_per_ton': [random.uniform(80, 90) for _ in hours],
+        'extraction_rate': [random.uniform(70, 72) for _ in hours],
+        'temp_c': [random.uniform(25, 35) for _ in hours],
+        'humidity': [random.uniform(45, 65) for _ in hours],
+        'vibration': [random.uniform(0.1, 0.5) for _ in hours]
+    }
+    
+    return pd.DataFrame(data)
+
+def calculate_model1_own_mill(wheat_tons, wheat_cost, flour_price, cost_of_capital):
+    """Calculate Model 1 (Own Mill) financials"""
+    # Capital costs
+    mill_capex = 226000000  # 226M PKR
+    land_capex = 50000000   # 50M PKR
+    total_capex = mill_capex + land_capex
+    
+    # Operational parameters
+    milling_cost_per_ton = 1000  # PKR/ton
+    annual_om_cost = 30000000    # 30M PKR/year
+    annual_depreciation = total_capex / 10  # 10-year depreciation
+    
+    # Revenue calculation
+    flour_per_ton_wheat = 0.72  # 72% extraction
+    annual_flour_tons = wheat_tons * flour_per_ton_wheat
+    
+    # Convert to maunds (1 ton = 37.5 maunds)
+    flour_maunds = annual_flour_tons * 37.5
+    
+    # Costs
+    wheat_cost_total = wheat_tons * 37.5 * wheat_cost
+    milling_cost_total = wheat_tons * milling_cost_per_ton
+    total_annual_cost = wheat_cost_total + milling_cost_total + annual_om_cost
+    
+    # Revenue
+    total_annual_revenue = flour_maunds * flour_price
+    
+    # Profit
+    annual_profit = total_annual_revenue - total_annual_cost
+    
+    # ROI
+    roi = (annual_profit / total_capex) * 100
+    
+    # Payback
+    payback_years = total_capex / annual_profit
+    
+    return {
+        'annual_profit': annual_profit,
+        'roi': round(roi, 1),
+        'payback_years': round(payback_years, 1),
+        'total_capex': total_capex
+    }
+
+def calculate_model2_toll_processing(wheat_tons, wheat_cost, flour_price):
+    """Calculate Model 2 (Toll Processing) financials"""
+    # Toll processing parameters
+    toll_fee_per_ton = 1000  # PKR/ton
+    transport_per_ton = 250  # PKR/ton
+    
+    # Revenue calculation
+    flour_per_ton_wheat = 0.71  # 71% extraction (slightly lower for toll)
+    annual_flour_tons = wheat_tons * flour_per_ton_wheat
+    flour_maunds = annual_flour_tons * 37.5
+    
+    # Costs
+    wheat_cost_total = wheat_tons * 37.5 * wheat_cost
+    toll_cost_total = wheat_tons * toll_fee_per_ton
+    transport_cost_total = wheat_tons * transport_per_ton
+    total_annual_cost = wheat_cost_total + toll_cost_total + transport_cost_total
+    
+    # Revenue
+    total_annual_revenue = flour_maunds * flour_price
+    
+    # Profit
+    annual_profit = total_annual_revenue - total_annual_cost
+    
+    return {
+        'annual_profit': annual_profit,
+        'toll_fee_per_ton': toll_fee_per_ton,
+        'capex': 0
+    }
+
+def calculate_model3_lease_mill(wheat_tons, wheat_cost, flour_price, cost_of_capital):
+    """Calculate Model 3 (Lease & Revive) financials"""
+    # Lease model parameters
+    renovation_capex = 50000000  # 50M PKR
+    annual_lease_cost = 36000000  # 3M/month = 36M/year
+    annual_om_cost = 20000000     # 20M PKR/year
+    
+    # Revenue calculation
+    flour_per_ton_wheat = 0.715  # 71.5% extraction
+    annual_flour_tons = wheat_tons * flour_per_ton_wheat
+    flour_maunds = annual_flour_tons * 37.5
+    
+    # Costs
+    wheat_cost_total = wheat_tons * 37.5 * wheat_cost
+    milling_cost_per_ton = 800  # Lower than toll due to control
+    milling_cost_total = wheat_tons * milling_cost_per_ton
+    total_annual_cost = wheat_cost_total + milling_cost_total + annual_lease_cost + annual_om_cost
+    
+    # Revenue
+    total_annual_revenue = flour_maunds * flour_price
+    
+    # Profit
+    annual_profit = total_annual_revenue - total_annual_cost
+    
+    # ROI (on renovation capex only)
+    roi = (annual_profit / renovation_capex) * 100
+    
+    # Payback
+    payback_years = renovation_capex / annual_profit
+    
+    return {
+        'annual_profit': annual_profit,
+        'roi': round(roi, 1),
+        'payback_years': round(payback_years, 1),
+        'capex': renovation_capex
+    }
 
 # --- 2. PREDICTIVE FUNCTIONS ---
 
@@ -1015,18 +1183,396 @@ def page_farmer_integration():
     • **Zero Capital:** Unilever doesn't finance inputs, only facilitates
     • **Social Collateral:** Groups guarantee each other's quality
     """)
-
+def page_toll_processing_management():
+    """Toll Processing Management Platform"""
+    st.title("🤝 Toll Processing Management")
+    st.markdown("### Manage Network of Partner Mills (Model 2)")
+    
+    # Generate mill data
+    df_mills = generate_mill_data()
+    
+    # Dashboard
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Active Mills", "8", "+2 this month")
+    with col2:
+        st.metric("Monthly Volume", "1,500 tons", "85% capacity")
+    with col3:
+        st.metric("Avg Quality Score", "4.2/5.0", "+0.3")
+    with col4:
+        st.metric("Cost Savings", "PKR 12.5M", "vs market")
+    
+    st.markdown("---")
+    
+    # Mill Performance Dashboard
+    st.subheader("🏭 Mill Performance Dashboard")
+    
+    tab_overview, tab_quality, tab_financial, tab_contracts = st.tabs([
+        "📊 Overview", "🔬 Quality Control", "💰 Financial", "📝 Contracts"
+    ])
+    
+    with tab_overview:
+        # Interactive mill map
+        st.map(df_mills)
+        
+        # Mill list with filters
+        col_filter1, col_filter2, col_filter3 = st.columns(3)
+        
+        with col_filter1:
+            location_filter = st.multiselect("Location", df_mills['Location'].unique())
+        with col_filter2:
+            capacity_filter = st.slider("Min Capacity (TPD)", 50, 500, 100)
+        with col_filter3:
+            rating_filter = st.slider("Min Quality Rating", 3.0, 5.0, 3.5)
+        
+        filtered_mills = df_mills[
+            (df_mills['Location'].isin(location_filter) if location_filter else True) &
+            (df_mills['Capacity_TPD'] >= capacity_filter) &
+            (df_mills['Quality_Rating'] >= rating_filter)
+        ]
+        
+        st.dataframe(
+            filtered_mills[['Mill_ID', 'Mill_Name', 'Location', 'Capacity_TPD', 
+                           'Quality_Rating', 'On_Contract', 'Last_Audit']],
+            use_container_width=True,
+            hide_index=True
+        )
+    
+    with tab_quality:
+        st.subheader("Quality Compliance Tracking")
+        
+        # Quality metrics
+        quality_data = {
+            'Parameter': ['Extraction Rate', 'Ash Content', 'Moisture', 'Protein', 'Contamination'],
+            'Target': ['≥71%', '≤0.48%', '≤12%', '≥11.5%', '0%'],
+            'Avg Performance': ['70.8%', '0.46%', '11.2%', '11.7%', '0.1%'],
+            'Compliance Rate': ['92%', '96%', '98%', '94%', '99%']
+        }
+        
+        st.dataframe(pd.DataFrame(quality_data), hide_index=True)
+        
+        # Quality alerts
+        st.subheader("⚠️ Quality Alerts")
+        
+        alerts = [
+            {"Mill": "Millers Co. 005", "Issue": "Extraction rate 68%", "Status": "Warning"},
+            {"Mill": "Millers Co. 012", "Issue": "Moisture 13.2%", "Status": "Critical"},
+            {"Mill": "Millers Co. 008", "Issue": "Ash content 0.52%", "Status": "Warning"}
+        ]
+        
+        for alert in alerts:
+            col_alert1, col_alert2, col_alert3 = st.columns([3, 2, 1])
+            with col_alert1:
+                st.write(f"**{alert['Mill']}**")
+            with col_alert2:
+                st.write(alert['Issue'])
+            with col_alert3:
+                if alert['Status'] == 'Critical':
+                    st.error("Critical")
+                else:
+                    st.warning("Warning")
+    
+    with tab_financial:
+        st.subheader("Financial Performance")
+        
+        # Cost comparison
+        cost_data = {
+            'Mill': ['Millers Co. 001', 'Millers Co. 002', 'Millers Co. 003', 'Market Average'],
+            'Processing Fee (PKR/ton)': [1000, 1050, 950, 1200],
+            'Transport Cost (PKR/ton)': [150, 200, 180, 250],
+            'Total Cost (PKR/ton)': [1150, 1250, 1130, 1450],
+            'Savings vs Market': [300, 200, 320, 0]
+        }
+        
+        st.dataframe(pd.DataFrame(cost_data), hide_index=True)
+        
+        # Batch payment tracker
+        st.subheader("Batch Payment Tracker")
+        
+        payments = [
+            {"Batch_ID": "B202406001", "Mill": "Millers Co. 001", "Tons": 100, 
+             "Fee": "PKR 100,000", "Status": "Paid", "Due_Date": "2024-06-15"},
+            {"Batch_ID": "B202406002", "Mill": "Millers Co. 002", "Tons": 150, 
+             "Fee": "PKR 157,500", "Status": "Pending", "Due_Date": "2024-06-20"},
+            {"Batch_ID": "B202406003", "Mill": "Millers Co. 003", "Tons": 80, 
+             "Fee": "PKR 76,000", "Status": "Quality Hold", "Due_Date": "2024-06-18"}
+        ]
+        
+        for payment in payments:
+            col_pay1, col_pay2, col_pay3, col_pay4, col_pay5 = st.columns(5)
+            with col_pay1:
+                st.write(f"**{payment['Batch_ID']}**")
+            with col_pay2:
+                st.write(payment['Mill'])
+            with col_pay3:
+                st.write(payment['Fee'])
+            with col_pay4:
+                if payment['Status'] == 'Paid':
+                    st.success("Paid")
+                elif payment['Status'] == 'Quality Hold':
+                    st.warning("On Hold")
+                else:
+                    st.info("Pending")
+            with col_pay5:
+                if st.button("Process", key=f"pay_{payment['Batch_ID']}"):
+                    st.success(f"Payment processed for {payment['Batch_ID']}")
+    
+    with tab_contracts:
+        st.subheader("Contract Management")
+        
+        # Contract status
+        contracts = [
+            {"Contract_ID": "CON001", "Mill": "Millers Co. 001", "Start_Date": "2024-01-01",
+             "End_Date": "2024-12-31", "Volume_Tons": 5000, "Status": "Active"},
+            {"Contract_ID": "CON002", "Mill": "Millers Co. 002", "Start_Date": "2024-02-01",
+             "End_Date": "2024-11-30", "Volume_Tons": 3000, "Status": "Active"},
+            {"Contract_ID": "CON003", "Mill": "Millers Co. 003", "Start_Date": "2024-03-01",
+             "End_Date": "2025-02-28", "Volume_Tons": 4000, "Status": "Active"},
+            {"Contract_ID": "CON004", "Mill": "Millers Co. 004", "Start_Date": "2023-11-01",
+             "End_Date": "2024-10-31", "Volume_Tons": 2000, "Status": "Expiring Soon"},
+        ]
+        
+        for contract in contracts:
+            with st.expander(f"Contract {contract['Contract_ID']} - {contract['Mill']}"):
+                col_con1, col_con2, col_con3 = st.columns(3)
+                
+                with col_con1:
+                    st.write(f"**Volume:** {contract['Volume_Tons']} tons")
+                    st.write(f"**Status:** {contract['Status']}")
+                
+                with col_con2:
+                    st.write(f"**Start:** {contract['Start_Date']}")
+                    st.write(f"**End:** {contract['End_Date']}")
+                
+                with col_con3:
+                    if contract['Status'] == 'Expiring Soon':
+                        if st.button("Renew", key=f"renew_{contract['Contract_ID']}"):
+                            st.success("Renewal initiated")
+                    elif st.button("View Details", key=f"view_{contract['Contract_ID']}"):
+                        st.write("Contract details would open here")
+def page_mill_operations():
+    """Mill Operations Control Tower"""
+    st.title("🏭 Mill Operations Control Tower")
+    st.markdown("### Real-time Monitoring for Owned/Leased Mill")
+    
+    # Simulated IoT data
+    iot_data = generate_iot_mill_data()
+    
+    # Real-time dashboard
+    st.subheader("🔄 Real-time Operations Dashboard")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Current Throughput", "98 TPD", "Target: 100 TPD")
+        st.progress(0.98)
+    
+    with col2:
+        st.metric("OEE (Overall Equipment Effectiveness)", "86%", "-2% from target")
+        st.progress(0.86)
+    
+    with col3:
+        st.metric("Extraction Rate", "71.2%", "Target: 72%")
+        st.progress(0.712)
+    
+    with col4:
+        st.metric("Energy Consumption", "85 kWh/ton", "-5% vs budget")
+        st.progress(0.85)
+    
+    st.markdown("---")
+    
+    # Tabs for different operational views
+    tab_monitor, tab_quality, tab_maintenance, tab_inventory = st.tabs([
+        "📊 Process Monitoring", "🔬 Quality Control", "🔧 Maintenance", "📦 Inventory"
+    ])
+    
+    with tab_monitor:
+        st.subheader("Process Flow Monitoring")
+        
+        # Simulated process flow
+        process_stages = [
+            {"Stage": "Wheat Intake", "Status": "🟢 Normal", "Current": "25 tons/hr"},
+            {"Stage": "Cleaning", "Status": "🟢 Normal", "Current": "24 tons/hr"},
+            {"Stage": "Conditioning", "Status": "🟡 Warning", "Current": "22 tons/hr"},
+            {"Stage": "Milling", "Status": "🟢 Normal", "Current": "4.1 tons/hr"},
+            {"Stage": "Sifting", "Status": "🟢 Normal", "Current": "4.0 tons/hr"},
+            {"Stage": "Packaging", "Status": "🟢 Normal", "Current": "3.9 tons/hr"},
+        ]
+        
+        # Visual process flow
+        cols = st.columns(len(process_stages))
+        for idx, stage in enumerate(process_stages):
+            with cols[idx]:
+                st.markdown(f"**{stage['Stage']}**")
+                if "🟢" in stage['Status']:
+                    st.success(stage['Status'])
+                elif "🟡" in stage['Status']:
+                    st.warning(stage['Status'])
+                else:
+                    st.error(stage['Status'])
+                st.caption(stage['Current'])
+        
+        # Real-time charts
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            st.markdown("##### Throughput (Last 24 Hours)")
+            throughput_data = {
+                'Hour': list(range(24)),
+                'Throughput (TPH)': [random.uniform(3.5, 4.2) for _ in range(24)]
+            }
+            st.line_chart(pd.DataFrame(throughput_data).set_index('Hour'))
+        
+        with col_chart2:
+            st.markdown("##### Power Consumption")
+            power_data = {
+                'Hour': list(range(24)),
+                'Power (kWh/ton)': [random.uniform(80, 90) for _ in range(24)]
+            }
+            st.line_chart(pd.DataFrame(power_data).set_index('Hour'))
+    
+    with tab_quality:
+        st.subheader("Real-time Quality Monitoring")
+        
+        # Quality parameters
+        quality_params = {
+            'Parameter': ['Protein %', 'Moisture %', 'Ash Content %', 'Gluten Index', 'Falling Number'],
+            'Target': ['11.5-12.5', '≤12.0', '≤0.48', '≥85', '≥250'],
+            'Current': ['11.8', '11.2', '0.46', '88', '280'],
+            'Status': ['🟢 In Spec', '🟢 In Spec', '🟢 In Spec', '🟢 In Spec', '🟢 In Spec'],
+            'Trend': ['↗️ Stable', '↘️ Improving', '→ Stable', '→ Stable', '↗️ Improving']
+        }
+        
+        st.dataframe(pd.DataFrame(quality_params), hide_index=True)
+        
+        # Statistical Process Control Chart
+        st.subheader("SPC Chart - Protein Content")
+        
+        # Generate SPC data
+        spc_data = {
+            'Batch': list(range(1, 31)),
+            'Protein': [random.uniform(11.3, 12.1) for _ in range(30)],
+            'Upper_Limit': [12.5] * 30,
+            'Lower_Limit': [11.5] * 30,
+            'Target': [12.0] * 30
+        }
+        
+        df_spc = pd.DataFrame(spc_data)
+        st.line_chart(df_spc.set_index('Batch')[['Protein', 'Upper_Limit', 'Lower_Limit', 'Target']])
+    
+    with tab_maintenance:
+        st.subheader("Predictive Maintenance Dashboard")
+        
+        # Equipment health monitoring
+        equipment = [
+            {"Equipment": "Roller Mill #1", "Health": 92, "Last_Maintenance": "30 days ago", "Next_Due": "15 days"},
+            {"Equipment": "Roller Mill #2", "Health": 85, "Last_Maintenance": "45 days ago", "Next_Due": "5 days"},
+            {"Equipment": "Plansifter #1", "Health": 78, "Last_Maintenance": "60 days ago", "Next_Due": "Overdue"},
+            {"Equipment": "Purifier", "Health": 95, "Last_Maintenance": "25 days ago", "Next_Due": "35 days"},
+            {"Equipment": "Conveyor System", "Health": 88, "Last_Maintenance": "40 days ago", "Next_Due": "20 days"},
+        ]
+        
+        for item in equipment:
+            col_eq1, col_eq2, col_eq3, col_eq4 = st.columns([2, 2, 2, 1])
+            with col_eq1:
+                st.write(f"**{item['Equipment']}**")
+            with col_eq2:
+                st.progress(item['Health']/100)
+                st.caption(f"{item['Health']}% health")
+            with col_eq3:
+                if "Overdue" in item['Next_Due']:
+                    st.error(f"Due: {item['Next_Due']}")
+                elif int(item['Next_Due'].split()[0]) < 10:
+                    st.warning(f"Due in: {item['Next_Due']}")
+                else:
+                    st.info(f"Due in: {item['Next_Due']}")
+            with col_eq4:
+                if st.button("Schedule", key=f"maint_{item['Equipment']}"):
+                    st.success(f"Maintenance scheduled for {item['Equipment']}")
+    
+    with tab_inventory:
+        st.subheader("Raw Material & Finished Goods Inventory")
+        
+        col_inv1, col_inv2 = st.columns(2)
+        
+        with col_inv1:
+            st.markdown("##### Raw Wheat Inventory")
+            
+            wheat_inventory = [
+                {"Silo": "Silo A", "Wheat_Type": "Hard Wheat", "Quantity_Tons": 250, "Days_Old": 15},
+                {"Silo": "Silo B", "Wheat_Type": "Medium Wheat", "Quantity_Tons": 180, "Days_Old": 8},
+                {"Silo": "Silo C", "Wheat_Type": "Soft Wheat", "Quantity_Tons": 120, "Days_Old": 22},
+                {"Total": "", "Wheat_Type": "All Types", "Quantity_Tons": 550, "Days_Old": "Avg 15"}
+            ]
+            
+            st.dataframe(pd.DataFrame(wheat_inventory), hide_index=True)
+            
+            # Blending calculator
+            st.markdown("##### Blending Calculator")
+            
+            hard_pct = st.slider("Hard Wheat %", 0, 100, 60)
+            medium_pct = st.slider("Medium Wheat %", 0, 100, 30)
+            soft_pct = 100 - hard_pct - medium_pct
+            
+            if soft_pct < 0:
+                st.error("Total must be 100%")
+            else:
+                st.info(f"Blend: {hard_pct}% Hard, {medium_pct}% Medium, {soft_pct}% Soft")
+                
+                # Calculate expected protein
+                expected_protein = (hard_pct*12.5 + medium_pct*11.5 + soft_pct*10.5)/100
+                st.metric("Expected Protein", f"{expected_protein:.1f}%")
+        
+        with col_inv2:
+            st.markdown("##### Finished Flour Inventory")
+            
+            flour_inventory = [
+                {"Batch": "F202406001", "Type": "Noodle Flour", "Quantity_Tons": 45, 
+                 "Production_Date": "2024-06-01", "Shelf_Life_Days": 10},
+                {"Batch": "F202406002", "Type": "Noodle Flour", "Quantity_Tons": 32, 
+                 "Production_Date": "2024-06-02", "Shelf_Life_Days": 9},
+                {"Batch": "F202406003", "Type": "Bread Flour", "Quantity_Tons": 28, 
+                 "Production_Date": "2024-06-03", "Shelf_Life_Days": 8},
+                {"Total": "", "Type": "All Types", "Quantity_Tons": 105, 
+                 "Production_Date": "", "Shelf_Life_Days": "Avg 9"}
+            ]
+            
+            st.dataframe(pd.DataFrame(flour_inventory), hide_index=True)
+            
+            # FIFO dispatch planner
+            st.markdown("##### FIFO Dispatch Planning")
+            
+            dispatch_qty = st.number_input("Dispatch Quantity (Tons)", min_value=1, max_value=100, value=50)
+            
+            if st.button("Calculate FIFO Dispatch"):
+                st.success("**Dispatch Plan:**")
+                st.write("1. Batch F202406001: 45 tons")
+                st.write("2. Batch F202406002: 5 tons")
+                st.write("**Total:** 50 tons (Freshness optimized)")
 
 
 # --- MAIN APP LOGIC (Sidebar Navigation) ---
 st.sidebar.title("UniGrain Connect")
-app_mode = st.sidebar.radio("Navigation", ["Dashboard & Bidding", "Supplier Network & Vetting", "Farmer Integration"])
-
+app_mode = st.sidebar.radio("Navigation", [
+    "Dashboard & Bidding", 
+    "Supplier Network & Vetting", 
+    "Farmer Integration",
+    "Mill Strategy Decision",  # New
+    "Toll Processing Mgmt",    # New
+    "Mill Operations"          # New
+])
 if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
 elif app_mode == "Farmer Integration":
     page_farmer_integration()
+elif app_mode == "Mill Strategy Decision":
+    page_mill_strategy_decision()
+elif app_mode == "Toll Processing Mgmt":
+    page_toll_processing_management()
+elif app_mode == "Mill Operations":
+    page_mill_operations()
 
 
