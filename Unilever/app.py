@@ -1033,7 +1033,7 @@ def page_farmer_integration():
     """)
 
 def page_supplier_network_bidding():
-    """Supplier Network with Digital Bidding"""
+    """Supplier Network with Digital Bidding - FIXED VERSION"""
     st.title("🌐 Supplier Network & Digital Bidding")
     st.markdown("### Manage Mills & Run Digital Tenders")
     
@@ -1088,63 +1088,126 @@ def page_supplier_network_bidding():
             st.metric("On Contract", f"{on_contract} mills")
     
     with tab2:
-        # --- Digital Bidding Section (Moved from Dashboard) ---
+        # --- Digital Bidding Section ---
         st.subheader("💪 Digital Bidding Platform")
         
         # Tender Creation Form
-        with st.form("tender_form"):
-            st.markdown("#### 🚀 Create New Tender")
+        st.markdown("#### 🚀 Create New Tender")
+        
+        # Initialize session state for form data
+        if 'tender_data' not in st.session_state:
+            st.session_state.tender_data = {
+                'submitted': False,
+                'tender_id': None,
+                'req_tons': 1000,
+                'flour_type': "Noodle Flour",
+                'delivery_location': "Phool Nagar",
+                'delivery_date': datetime.today() + timedelta(days=14),
+                'bid_close': datetime.today() + timedelta(days=7),
+                'min_protein': 11.5,
+                'max_moisture': 12.0,
+                'max_ash': 0.48,
+                'payment_terms': "30 days after delivery",
+                'penalty_clause': True,
+                'quality_hold': True
+            }
+        
+        # Form inputs
+        col_req, col_loc, col_date = st.columns(3)
+        
+        with col_req:
+            req_tons = st.number_input("Required Tons", 100, 5000, 
+                                      st.session_state.tender_data['req_tons'], 100)
+            flour_type = st.selectbox("Flour Type", 
+                                     ["Noodle Flour", "Bread Flour", "All-Purpose"],
+                                     index=["Noodle Flour", "Bread Flour", "All-Purpose"].index(
+                                         st.session_state.tender_data['flour_type']
+                                     ))
+        
+        with col_loc:
+            delivery_location = st.selectbox("Delivery Location", 
+                                            ["Phool Nagar", "Rahim Yar Khan", "Lahore", "Karachi"],
+                                            index=["Phool Nagar", "Rahim Yar Khan", "Lahore", "Karachi"].index(
+                                                st.session_state.tender_data['delivery_location']
+                                            ))
+            incoterm = st.selectbox("Incoterm", ["EXW Mill", "DAP Factory"])
+        
+        with col_date:
+            delivery_date = st.date_input("Delivery Date", 
+                                         st.session_state.tender_data['delivery_date'])
+            bid_close = st.date_input("Bid Closing", 
+                                     st.session_state.tender_data['bid_close'])
+        
+        # Quality Specifications
+        st.markdown("##### Quality Specifications")
+        col_spec1, col_spec2, col_spec3 = st.columns(3)
+        
+        with col_spec1:
+            min_protein = st.slider("Min Protein %", 10.0, 14.0, 
+                                   st.session_state.tender_data['min_protein'], 0.1)
+        with col_spec2:
+            max_moisture = st.slider("Max Moisture %", 10.0, 14.0, 
+                                    st.session_state.tender_data['max_moisture'], 0.1)
+        with col_spec3:
+            max_ash = st.slider("Max Ash %", 0.3, 0.7, 
+                               st.session_state.tender_data['max_ash'], 0.01)
+        
+        # Terms and Conditions
+        st.markdown("##### Terms & Conditions")
+        payment_terms = st.selectbox("Payment Terms", 
+                                    ["30 days after delivery", 
+                                     "15 days after delivery", 
+                                     "7 days after delivery"],
+                                    index=["30 days after delivery", 
+                                           "15 days after delivery", 
+                                           "7 days after delivery"].index(
+                                               st.session_state.tender_data['payment_terms']
+                                           ))
+        
+        penalty_clause = st.checkbox("Include penalty for late delivery (2% per day)", 
+                                    value=st.session_state.tender_data['penalty_clause'])
+        quality_hold = st.checkbox("Quality-based payment hold", 
+                                  value=st.session_state.tender_data['quality_hold'])
+        
+        # Publish Tender Button - OUTSIDE any form
+        if st.button("📢 Publish Tender", type="primary"):
+            tender_id = f"TNDR-{datetime.now().strftime('%Y%m%d')}-{random.randint(100, 999)}"
             
-            col_req, col_loc, col_date = st.columns(3)
+            # Update session state
+            st.session_state.tender_data.update({
+                'submitted': True,
+                'tender_id': tender_id,
+                'req_tons': req_tons,
+                'flour_type': flour_type,
+                'delivery_location': delivery_location,
+                'delivery_date': delivery_date,
+                'bid_close': bid_close,
+                'min_protein': min_protein,
+                'max_moisture': max_moisture,
+                'max_ash': max_ash,
+                'payment_terms': payment_terms,
+                'penalty_clause': penalty_clause,
+                'quality_hold': quality_hold
+            })
             
-            with col_req:
-                req_tons = st.number_input("Required Tons", 100, 5000, 1000, 100)
-                flour_type = st.selectbox("Flour Type", 
-                                         ["Noodle Flour", "Bread Flour", "All-Purpose"])
+            st.success(f"✅ Tender {tender_id} published successfully!")
+            st.info(f"**Tender Value:** PKR {req_tons * 1000 * current_price:,.0f}")
+            st.info(f"**Bids will close on:** {bid_close}")
             
-            with col_loc:
-                delivery_location = st.selectbox("Delivery Location", 
-                                                ["Phool Nagar", "Rahim Yar Khan", "Lahore", "Karachi"])
-                incoterm = st.selectbox("Incoterm", ["EXW Mill", "DAP Factory"])
-            
-            with col_date:
-                delivery_date = st.date_input("Delivery Date", 
-                                             datetime.today() + timedelta(days=14))
-                bid_close = st.date_input("Bid Closing", 
-                                         datetime.today() + timedelta(days=7))
-            
-            # Quality Specifications
-            st.markdown("##### Quality Specifications")
-            col_spec1, col_spec2, col_spec3 = st.columns(3)
-            
-            with col_spec1:
-                min_protein = st.slider("Min Protein %", 10.0, 14.0, 11.5, 0.1)
-            with col_spec2:
-                max_moisture = st.slider("Max Moisture %", 10.0, 14.0, 12.0, 0.1)
-            with col_spec3:
-                max_ash = st.slider("Max Ash %", 0.3, 0.7, 0.48, 0.01)
-            
-            # Terms and Conditions
-            st.markdown("##### Terms & Conditions")
-            payment_terms = st.selectbox("Payment Terms", 
-                                        ["30 days after delivery", 
-                                         "15 days after delivery", 
-                                         "7 days after delivery"])
-            
-            penalty_clause = st.checkbox("Include penalty for late delivery (2% per day)")
-            quality_hold = st.checkbox("Quality-based payment hold")
-            
-            submitted = st.form_submit_button("📢 Publish Tender")
-            
-            if submitted:
-                tender_id = f"TNDR-{datetime.now().strftime('%Y%m%d')}-{random.randint(100, 999)}"
-                st.success(f"✅ Tender {tender_id} published successfully!")
-                st.info(f"**Tender Value:** PKR {req_tons * 1000 * current_price:,.0f}")
-                st.info(f"**Bids will close on:** {bid_close}")
-                
-                # Notify suppliers via email/WhatsApp
+            # Reset flag to show buttons again
+            st.rerun()
+        
+        # If tender was submitted, show notification option
+        if st.session_state.tender_data['submitted']:
+            col_notify, col_reset = st.columns(2)
+            with col_notify:
                 if st.button("📤 Notify All Suppliers"):
                     st.success("Notification sent to 50+ registered mills!")
+            with col_reset:
+                if st.button("🔄 Create Another Tender"):
+                    # Reset form data
+                    st.session_state.tender_data['submitted'] = False
+                    st.rerun()
         
         st.markdown("---")
         
@@ -1214,18 +1277,18 @@ def page_supplier_network_bidding():
                         ---
                         
                         **TERMS:**
-                        - Quantity: {req_tons} tons
+                        - Quantity: {st.session_state.tender_data['req_tons']} tons
                         - Price: PKR {selected_bid['Bid (PKR/Kg)']}/kg
                         - Delivery: Within {selected_bid['Delivery Days']} days
-                        - Location: {delivery_location}
-                        - Payment: {payment_terms}
+                        - Location: {st.session_state.tender_data['delivery_location']}
+                        - Payment: {st.session_state.tender_data['payment_terms']}
                         
                         **QUALITY SPECS:**
-                        • Protein: ≥{min_protein}%
-                        • Moisture: ≤{max_moisture}%
-                        • Ash: ≤{max_ash}%
+                        • Protein: ≥{st.session_state.tender_data['min_protein']}%
+                        • Moisture: ≤{st.session_state.tender_data['max_moisture']}%
+                        • Ash: ≤{st.session_state.tender_data['max_ash']}%
                         
-                        **Total Value:** PKR {req_tons * 1000 * selected_bid['Bid (PKR/Kg)']:,.0f}
+                        **Total Value:** PKR {st.session_state.tender_data['req_tons'] * 1000 * selected_bid['Bid (PKR/Kg)']:,.0f}
                         """)
             
             with col_details:
@@ -1234,6 +1297,7 @@ def page_supplier_network_bidding():
                 st.write(f"**Quality Rating:** {selected_bid['Quality']}/5.0")
                 st.write(f"**Delivery:** {selected_bid['Delivery Days']} days")
         
+        # Bids Summary Metrics
         if len(df_bids) > 0:
             best_bid = df_bids['Bid (PKR/Kg)'].min()
             worst_bid = df_bids['Bid (PKR/Kg)'].max()
