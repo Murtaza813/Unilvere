@@ -16,7 +16,6 @@ def generate_market_data(days=365 * 3):
     start_date = end_date - timedelta(days=days)
     dates = pd.date_range(start=start_date, end=end_date, freq='D')
     
-    # Regions with simulated different volatility levels
     regions = ['Karachi (Sindh)', 'Multan (Punjab)', 'Faisalabad (Punjab)', 'Sukkur (Sindh)']
     
     data = []
@@ -25,15 +24,18 @@ def generate_market_data(days=365 * 3):
     
     for date in dates:
         for region in regions:
-            # Simulate regional volatility difference (Higher volatility for Sindh)
             volatility_multiplier = 1.0
             if 'Sindh' in region:
                 volatility_multiplier = 1.5 
             
             price_offset = {'Karachi (Sindh)': 3, 'Multan (Punjab)': -2, 'Faisalabad (Punjab)': 1, 'Sukkur (Sindh)': -1}[region]
             
-            # Simulate seasonality and random walk
-            seasonal_factor = 5 * np.sin(date.timetuple().tm_yday * 2 * np.pi / 365)
+            # FIXED SEASONAL PATTERN: Low in harvest, High in lean
+            day_of_year = date.timetuple().tm_yday
+            # Harvest = April-May (days 90-150) = LOW prices (~90-95 PKR)
+            # Lean = Oct-Dec (days 270-365) = HIGH prices (~110-115 PKR)
+            seasonal_factor = -10 * np.cos((day_of_year - 135) * 2 * np.pi / 365)
+            
             noise = np.random.normal(0, 1) * volatility_multiplier
             
             price = base_price + price_offset + seasonal_factor + noise + 0.05 * (date - start_date).days / 365
@@ -47,7 +49,7 @@ def generate_market_data(days=365 * 3):
             
     df = pd.DataFrame(data)
     return df
-
+    
 @st.cache_data
 def generate_supplier_data(num_suppliers=50):
     """Simulates the expanded network of flour mills."""
@@ -186,9 +188,10 @@ def simulate_storage_strategy(df_market, annual_need_tons, holding_cost_pk_month
     last_full_year = datetime.today().year - 1
     df_sim = df_market[df_market['Year'] >= last_full_year - 1].copy()
     
-    # Identify average prices by season
-    df_low = df_sim[df_sim['Month'].isin([3, 4, 5])]  # Harvest season (Mar-Apr-May)
-    df_high = df_sim[df_sim['Month'].isin([10, 11, 12])]  # Lean season (Oct-Nov-Dec)
+    # Harvest season: March, April, May (low prices)
+    df_low = df_sim[df_sim['Month'].isin([3, 4, 5])]
+    # Lean season: October, November, December (high prices)
+    df_high = df_sim[df_sim['Month'].isin([10, 11, 12])]
     
     avg_low_price = df_low['Mandi_Price_PKR_per_Kg'].mean()
     avg_high_price = df_high['Mandi_Price_PKR_per_Kg'].mean()
@@ -723,3 +726,4 @@ if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
+
