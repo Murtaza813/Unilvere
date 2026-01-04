@@ -1,3 +1,7 @@
+# DEBUG CODE - Add this at the very top
+import sys
+print("Python version:", sys.version)
+print("All imports:", sys.modules.keys())
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -613,6 +617,7 @@ if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
+
 
 
 
