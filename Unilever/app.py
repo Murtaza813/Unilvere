@@ -1,19 +1,6 @@
-import subprocess
-import sys
-
-def install(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-# Install plotly if not present
-try:
-    import plotly.express as px
-except ImportError:
-    install("plotly")
-    import plotly.express as px
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px 
 from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
 
@@ -808,6 +795,7 @@ if app_mode == "Dashboard & Bidding":
     page_dashboard()
 elif app_mode == "Supplier Network & Vetting":
     page_supplier_network()
+
 
 
 
