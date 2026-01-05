@@ -6,18 +6,357 @@ from datetime import datetime, timedelta
 import json
 import random
 
-# --- Configuration ---
-st.set_page_config(layout="wide", page_title="UniGrain Connect Prototype")
+st.set_page_config(
+    layout="wide", 
+    page_title="UniGrain Connect - Unilever",
+    page_icon="🌾",
+    initial_sidebar_state="expanded"
+)
 
-# --- CLEAR CACHE ---
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .main {
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #EBF4F6 0%, #B1D4E0 100%);
+    }
+    
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0057A8 0%, #003D7A 100%);
+        padding: 0;
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    
+    .unilever-header {
+        background: white;
+        padding: 1.5rem;
+        text-align: center;
+        border-bottom: 3px solid #0057A8;
+        margin: -1rem -1rem 2rem -1rem;
+    }
+    
+    .unilever-logo {
+        width: 180px;
+        margin-bottom: 0.5rem;
+    }
+    
+    h1 {
+        color: #0057A8;
+        font-weight: 700;
+        font-size: 2.3rem;
+        margin-bottom: 0.3rem;
+    }
+    
+    h2 {
+        color: #003D7A;
+        font-weight: 600;
+        font-size: 1.7rem;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        border-bottom: 3px solid #00A9E0;
+        padding-bottom: 0.5rem;
+    }
+    
+    h3 {
+        color: #003D7A;
+        font-weight: 600;
+        font-size: 1.3rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    h4 {
+        color: #0057A8;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    h5 {
+        color: #003D7A;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #0057A8;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 0.85rem;
+        color: #5A6C7D;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stButton button {
+        background: linear-gradient(135deg, #0057A8 0%, #00A9E0 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.7rem 1.8rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0,87,168,0.2);
+    }
+    
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,87,168,0.3);
+        background: linear-gradient(135deg, #003D7A 0%, #0057A8 100%);
+    }
+    
+    .stButton button:active {
+        transform: translateY(0px);
+    }
+    
+    div[data-testid="stExpander"] {
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #D0E1E9;
+        box-shadow: 0 2px 6px rgba(0,87,168,0.08);
+        margin-bottom: 1rem;
+    }
+    
+    div[data-testid="stExpander"] summary {
+        background-color: #F0F7FA;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 1rem;
+        color: #003D7A;
+    }
+    
+    .dataframe {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,87,168,0.1);
+    }
+    
+    .dataframe thead tr th {
+        background: linear-gradient(135deg, #0057A8 0%, #003D7A 100%) !important;
+        color: white !important;
+        font-weight: 600;
+        padding: 1rem;
+        text-align: left;
+        border: none !important;
+    }
+    
+    .dataframe tbody tr {
+        border-bottom: 1px solid #E8F1F5;
+    }
+    
+    .dataframe tbody tr:nth-child(even) {
+        background-color: #F8FBFD;
+    }
+    
+    .dataframe tbody tr:hover {
+        background-color: #EBF4F6;
+        transition: background-color 0.2s ease;
+    }
+    
+    .dataframe tbody td {
+        padding: 0.8rem;
+        color: #2C3E50;
+    }
+    
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #0057A8 0%, #00A9E0 100%);
+        border-radius: 10px;
+        height: 12px;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 1rem;
+        border-bottom: 2px solid #D0E1E9;
+        padding-bottom: 0;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+        color: #5A6C7D;
+        border-radius: 8px 8px 0 0;
+        background: transparent;
+        border: none;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #0057A8 0%, #00A9E0 100%);
+        color: white !important;
+    }
+    
+    .stTextInput input, .stNumberInput input, .stSelectbox select, .stTextArea textarea {
+        border-radius: 8px;
+        border: 2px solid #D0E1E9;
+        padding: 0.7rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus, .stTextArea textarea:focus {
+        border-color: #0057A8;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(0,87,168,0.1);
+    }
+    
+    .stSelectbox, .stMultiSelect {
+        margin-bottom: 1rem;
+    }
+    
+    div[data-baseweb="select"] > div {
+        border-radius: 8px;
+        border: 2px solid #D0E1E9;
+    }
+    
+    .stAlert {
+        border-radius: 10px;
+        padding: 1rem 1.5rem;
+        margin: 1rem 0;
+        border-left: 4px solid;
+    }
+    
+    .stSuccess {
+        background-color: #D4EDDA;
+        border-left-color: #28A745;
+        color: #155724;
+    }
+    
+    .stInfo {
+        background-color: #D1ECF1;
+        border-left-color: #00A9E0;
+        color: #0C5460;
+    }
+    
+    .stWarning {
+        background-color: #FFF3CD;
+        border-left-color: #FFC107;
+        color: #856404;
+    }
+    
+    .stError {
+        background-color: #F8D7DA;
+        border-left-color: #DC3545;
+        color: #721C24;
+    }
+    
+    div[data-testid="stContainer"] {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,87,168,0.08);
+        margin-bottom: 1.5rem;
+        border: 1px solid #D0E1E9;
+    }
+    
+    .unilever-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,87,168,0.08);
+        border-left: 4px solid #0057A8;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .unilever-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0,87,168,0.15);
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 0.4rem 0.9rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 0.2rem;
+    }
+    
+    .badge-primary {
+        background-color: #D6E9F5;
+        color: #0057A8;
+    }
+    
+    .badge-success {
+        background-color: #D4EDDA;
+        color: #155724;
+    }
+    
+    .badge-warning {
+        background-color: #FFF3CD;
+        color: #856404;
+    }
+    
+    .badge-danger {
+        background-color: #F8D7DA;
+        color: #721C24;
+    }
+    
+    .stRadio > label {
+        font-weight: 600;
+        color: white;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stRadio label {
+        background: rgba(255,255,255,0.1);
+        padding: 0.7rem 1.2rem;
+        border-radius: 8px;
+        border: 2px solid rgba(255,255,255,0.2);
+        transition: all 0.2s ease;
+    }
+    
+    .stRadio label:hover {
+        background: rgba(255,255,255,0.2);
+        border-color: rgba(255,255,255,0.4);
+    }
+    
+    hr {
+        margin: 2rem 0;
+        border: none;
+        border-top: 2px solid #D0E1E9;
+    }
+    
+    .hero-banner {
+        background: linear-gradient(135deg, #0057A8 0%, #00A9E0 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: 0 8px 24px rgba(0,87,168,0.2);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.cache_data.clear()
 st.cache_resource.clear()
 
-# --- 1. DATA GENERATION FUNCTIONS ---
-
 @st.cache_data
 def generate_market_data(days=365 * 3):
-    """FIXED: Simulates wheat prices with correct seasonal pattern."""
     end_date = datetime.today()
     start_date = end_date - timedelta(days=days)
     dates = pd.date_range(start=start_date, end=end_date, freq='D')
@@ -29,10 +368,8 @@ def generate_market_data(days=365 * 3):
     
     for date in dates:
         month = date.month
-        day_of_year = date.timetuple().tm_yday
         
         for region in regions:
-            # Regional base prices
             if region == 'Karachi (Sindh)':
                 base_price = 103
                 volatility = 1.5
@@ -42,30 +379,22 @@ def generate_market_data(days=365 * 3):
             elif region == 'Faisalabad (Punjab)':
                 base_price = 101
                 volatility = 1.0
-            else:  # Sukkur
+            else:
                 base_price = 99
                 volatility = 1.5
             
-            # FIXED: CORRECT SEASONAL PATTERN
-            # Harvest (April-May): LOW prices ~90-95
-            # Lean (Oct-Dec): HIGH prices ~110-115
-            if month in [3, 4, 5]:  # Harvest season
-                seasonal_adjustment = -8  # LOWER prices
-            elif month in [10, 11, 12]:  # Lean season
-                seasonal_adjustment = 8   # HIGHER prices
+            if month in [3, 4, 5]:
+                seasonal_adjustment = -8
+            elif month in [10, 11, 12]:
+                seasonal_adjustment = 8
             else:
                 seasonal_adjustment = 0
             
-            # Add some noise
             noise = np.random.normal(0, 2) * volatility
-            
-            # Small upward trend over years
             days_since_start = (date - start_date).days
             trend = 0.03 * (days_since_start / 365)
             
             price = base_price + seasonal_adjustment + noise + trend
-            
-            # Keep in realistic range
             price = max(85, min(125, price))
             
             data.append({
@@ -79,7 +408,6 @@ def generate_market_data(days=365 * 3):
 
 @st.cache_data
 def generate_supplier_data(num_suppliers=50):
-    """Simulates the expanded network of flour mills."""
     np.random.seed(43)
     data = {
         'Supplier_ID': [f'SUP{i:03d}' for i in range(1, num_suppliers + 1)],
@@ -96,7 +424,6 @@ def generate_supplier_data(num_suppliers=50):
 
 @st.cache_data
 def generate_tender_history(df_market, df_suppliers):
-    """Simulates past procurement tenders."""
     tender_dates = df_market['Date'].unique()[::30]
     data = []
     for i, date in enumerate(tender_dates):
@@ -119,11 +446,8 @@ def generate_tender_history(df_market, df_suppliers):
 
     return pd.DataFrame(data)
 
-# --- Farmer Integration Data ---
-
 @st.cache_data
 def generate_farmer_data():
-    """Generate sample farmer data."""
     np.random.seed(44)
     
     villages = ['Multan', 'Lahore', 'Faisalabad', 'Sahiwal', 'Bahawalpur', 'Okara']
@@ -131,7 +455,7 @@ def generate_farmer_data():
     farmers = []
     for i in range(1, 51):
         village = random.choice(villages)
-        farm_size = random.randint(5, 50)  # acres
+        farm_size = random.randint(5, 50)
         
         farmers.append({
             'Farmer_ID': f'FA{i:03d}',
@@ -139,11 +463,11 @@ def generate_farmer_data():
             'CNIC': f'35201-{random.randint(1000000, 9999999)}-{random.randint(1, 9)}',
             'Village': village,
             'Farm_Size_Acres': farm_size,
-            'Expected_Production_Tons': farm_size * 0.8,  # 0.8 tons per acre
+            'Expected_Production_Tons': farm_size * 0.8,
             'Group_ID': f'GRP{(i-1)//10 + 1:03d}',
             'Joined_Date': datetime.today() - timedelta(days=random.randint(1, 90)),
             'Status': random.choice(['Active', 'Active', 'Active', 'Pending']),
-            'Contracted_Volume_Tons': round(farm_size * 0.8 * 0.7, 2),  # 70% contracted
+            'Contracted_Volume_Tons': round(farm_size * 0.8 * 0.7, 2),
             'Loan_Amount_PKR': random.choice([0, 50000, 100000, 150000]),
             'Quality_Score': random.uniform(3.0, 5.0)
         })
@@ -152,7 +476,6 @@ def generate_farmer_data():
 
 @st.cache_data
 def generate_farmer_groups():
-    """Generate farmer groups."""
     groups = []
     for i in range(1, 6):
         groups.append({
@@ -169,7 +492,6 @@ def generate_farmer_groups():
 
 @st.cache_data
 def generate_input_catalog():
-    """Generate input catalog with Unilever discounts."""
     catalog = [
         {'Item_ID': 'INP001', 'Item_Name': 'Wheat Seed (50kg)', 'Market_Price': 5000, 'Alliance_Price': 3750, 'Discount': '25%', 'Stock': 'Available'},
         {'Item_ID': 'INP002', 'Item_Name': 'Urea Fertilizer (50kg)', 'Market_Price': 3000, 'Alliance_Price': 2250, 'Discount': '25%', 'Stock': 'Available'},
@@ -181,21 +503,19 @@ def generate_input_catalog():
 
 @st.cache_data
 def generate_loan_products():
-    """Generate loan products."""
     loans = [
         {'Loan_ID': 'LN001', 'Purpose': 'Seed Purchase', 'Amount_Range': 'PKR 50,000-100,000', 'Interest_Rate': '12%', 'Term': '12 months'},
         {'Loan_ID': 'LN002', 'Purpose': 'Fertilizer Purchase', 'Amount_Range': 'PKR 25,000-50,000', 'Interest_Rate': '12%', 'Term': '6 months'},
         {'Loan_ID': 'LN003', 'Purpose': 'Equipment', 'Amount_Range': 'PKR 100,000-200,000', 'Interest_Rate': '12%', 'Term': '24 months'},
     ]
     return pd.DataFrame(loans)
+
 @st.cache_data
 def generate_mill_data():
-    """Generate comprehensive mill data for toll processing"""
     np.random.seed(45)
     
     mill_types = ['Commercial', 'Medium Modern', 'Cooperative', 'Mega Mill']
     
-    # Pakistan city coordinates
     city_coords = {
         'Multan': {'lat': 30.1575, 'lon': 71.5249},
         'Lahore': {'lat': 31.5497, 'lon': 74.3436},
@@ -218,11 +538,10 @@ def generate_mill_data():
         elif mill_type == 'Cooperative':
             capacity = random.randint(50, 150)
             quality = random.uniform(3.0, 4.0)
-        else:  # Mega Mill
+        else:
             capacity = random.randint(400, 600)
             quality = random.uniform(3.8, 4.5)
         
-        # Add some random variation to coordinates
         lat = city_coords[location]['lat'] + random.uniform(-0.1, 0.1)
         lon = city_coords[location]['lon'] + random.uniform(-0.1, 0.1)
         
@@ -246,10 +565,8 @@ def generate_mill_data():
 
 @st.cache_data
 def generate_iot_mill_data():
-    """Generate simulated IoT data for mill operations"""
     np.random.seed(46)
     
-    # Generate 24 hours of data
     hours = list(range(24))
     
     data = {
@@ -264,6 +581,16 @@ def generate_iot_mill_data():
     
     return pd.DataFrame(data)
 
+df_market = generate_market_data()
+df_suppliers = generate_supplier_data()
+df_tenders = generate_tender_history(df_market, df_suppliers)
+df_farmers = generate_farmer_data()
+df_groups = generate_farmer_groups()
+df_inputs = generate_input_catalog()
+df_loans = generate_loan_products()
+df_mills = generate_mill_data()
+current_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-1].round(2)
+historical_avg = df_market['Mandi_Price_PKR_per_Kg'].mean().round(2)
 
 
 # --- 2. PREDICTIVE FUNCTIONS ---
