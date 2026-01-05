@@ -21,20 +21,44 @@ st.markdown("""
         font-family: 'Poppins', sans-serif;
     }
     
+    /* PROFESSIONAL MAIN BACKGROUND */
     .main {
         padding: 1.5rem;
-        background: linear-gradient(135deg, #EBF4F6 0%, #B1D4E0 100%);
+        background: linear-gradient(135deg, #F8F9FB 0%, #E8EDF2 50%, #DAE2E9 100%);
+        position: relative;
     }
     
+    .main::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: 
+            radial-gradient(circle at 20% 50%, rgba(0,87,168,0.03) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(0,169,224,0.03) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+    
+    .main > div {
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* SIDEBAR */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0057A8 0%, #003D7A 100%);
         padding: 0;
+        box-shadow: 4px 0 12px rgba(0,0,0,0.1);
     }
     
     [data-testid="stSidebar"] * {
         color: white !important;
     }
     
+    /* UNILEVER HEADER IN SIDEBAR */
     .unilever-header {
         background: white;
         padding: 1.5rem;
@@ -48,11 +72,13 @@ st.markdown("""
         margin-bottom: 0.5rem;
     }
     
+    /* HEADERS */
     h1 {
         color: #0057A8;
         font-weight: 700;
         font-size: 2.3rem;
         margin-bottom: 0.3rem;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
     }
     
     h2 {
@@ -85,6 +111,7 @@ st.markdown("""
         font-size: 1rem;
     }
     
+    /* METRIC CARDS */
     [data-testid="stMetricValue"] {
         font-size: 2.2rem;
         font-weight: 700;
@@ -99,6 +126,7 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
     
+    /* BUTTONS */
     .stButton button {
         background: linear-gradient(135deg, #0057A8 0%, #00A9E0 100%);
         color: white;
@@ -108,12 +136,12 @@ st.markdown("""
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 8px rgba(0,87,168,0.2);
+        box-shadow: 0 4px 12px rgba(0,87,168,0.25);
     }
     
     .stButton button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(0,87,168,0.3);
+        box-shadow: 0 6px 20px rgba(0,87,168,0.35);
         background: linear-gradient(135deg, #003D7A 0%, #0057A8 100%);
     }
     
@@ -121,11 +149,12 @@ st.markdown("""
         transform: translateY(0px);
     }
     
+    /* EXPANDERS */
     div[data-testid="stExpander"] {
         background: white;
         border-radius: 10px;
         border: 1px solid #D0E1E9;
-        box-shadow: 0 2px 6px rgba(0,87,168,0.08);
+        box-shadow: 0 2px 8px rgba(0,87,168,0.08);
         margin-bottom: 1rem;
     }
     
@@ -137,10 +166,12 @@ st.markdown("""
         color: #003D7A;
     }
     
+    /* TABLES */
     .dataframe {
-        border-radius: 8px;
+        border-radius: 10px;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,87,168,0.1);
+        box-shadow: 0 4px 12px rgba(0,87,168,0.1);
+        background: white;
     }
     
     .dataframe thead tr th {
@@ -170,16 +201,19 @@ st.markdown("""
         color: #2C3E50;
     }
     
+    /* PROGRESS BARS */
     .stProgress > div > div {
         background: linear-gradient(90deg, #0057A8 0%, #00A9E0 100%);
         border-radius: 10px;
         height: 12px;
     }
     
+    /* TABS */
     .stTabs [data-baseweb="tab-list"] {
         gap: 1rem;
         border-bottom: 2px solid #D0E1E9;
         padding-bottom: 0;
+        background: transparent;
     }
     
     .stTabs [data-baseweb="tab"] {
@@ -187,21 +221,25 @@ st.markdown("""
         font-weight: 600;
         color: #5A6C7D;
         border-radius: 8px 8px 0 0;
-        background: transparent;
-        border: none;
+        background: white;
+        border: 1px solid #D0E1E9;
+        border-bottom: none;
     }
     
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #0057A8 0%, #00A9E0 100%);
         color: white !important;
+        border-color: #0057A8;
     }
     
+    /* INPUT FIELDS */
     .stTextInput input, .stNumberInput input, .stSelectbox select, .stTextArea textarea {
         border-radius: 8px;
         border: 2px solid #D0E1E9;
         padding: 0.7rem;
         font-size: 0.95rem;
         transition: all 0.3s ease;
+        background: white;
     }
     
     .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus, .stTextArea textarea:focus {
@@ -217,13 +255,16 @@ st.markdown("""
     div[data-baseweb="select"] > div {
         border-radius: 8px;
         border: 2px solid #D0E1E9;
+        background: white;
     }
     
+    /* ALERTS */
     .stAlert {
         border-radius: 10px;
         padding: 1rem 1.5rem;
         margin: 1rem 0;
         border-left: 4px solid;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     
     .stSuccess {
@@ -250,20 +291,22 @@ st.markdown("""
         color: #721C24;
     }
     
+    /* CONTAINERS */
     div[data-testid="stContainer"] {
         background: white;
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 4px 12px rgba(0,87,168,0.08);
+        box-shadow: 0 4px 16px rgba(0,87,168,0.08);
         margin-bottom: 1.5rem;
-        border: 1px solid #D0E1E9;
+        border: 1px solid #E8EDF2;
     }
     
+    /* UNILEVER CARD */
     .unilever-card {
         background: white;
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 4px 12px rgba(0,87,168,0.08);
+        box-shadow: 0 4px 16px rgba(0,87,168,0.1);
         border-left: 4px solid #0057A8;
         margin-bottom: 1.5rem;
         transition: all 0.3s ease;
@@ -271,9 +314,10 @@ st.markdown("""
     
     .unilever-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(0,87,168,0.15);
+        box-shadow: 0 8px 24px rgba(0,87,168,0.15);
     }
     
+    /* BADGES */
     .badge {
         display: inline-block;
         padding: 0.4rem 0.9rem;
@@ -303,6 +347,7 @@ st.markdown("""
         color: #721C24;
     }
     
+    /* RADIO BUTTONS IN SIDEBAR */
     .stRadio > label {
         font-weight: 600;
         color: white;
@@ -322,12 +367,14 @@ st.markdown("""
         border-color: rgba(255,255,255,0.4);
     }
     
+    /* HORIZONTAL RULE */
     hr {
         margin: 2rem 0;
         border: none;
         border-top: 2px solid #D0E1E9;
     }
     
+    /* HERO BANNER */
     .hero-banner {
         background: linear-gradient(135deg, #0057A8 0%, #00A9E0 100%);
         border-radius: 16px;
@@ -348,6 +395,36 @@ st.markdown("""
         height: 300px;
         background: rgba(255,255,255,0.1);
         border-radius: 50%;
+    }
+    
+    /* FORMS */
+    .stForm {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid #E8EDF2;
+        box-shadow: 0 2px 12px rgba(0,87,168,0.08);
+    }
+    
+    /* FILE UPLOADER */
+    section[data-testid="stFileUploadDropzone"] {
+        border: 2px dashed #0057A8;
+        border-radius: 10px;
+        background: #F8FBFD;
+        padding: 2rem;
+    }
+    
+    section[data-testid="stFileUploadDropzone"]:hover {
+        border-color: #00A9E0;
+        background: #EBF4F6;
+    }
+    
+    /* CHARTS */
+    .js-plotly-plot {
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,87,168,0.08);
+        background: white;
+        padding: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
