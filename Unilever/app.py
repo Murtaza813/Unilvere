@@ -24,7 +24,7 @@ st.markdown("""
     /* PROFESSIONAL MAIN BACKGROUND */
     .main {
         padding: 1.5rem;
-        background: linear-gradient(135deg, #F8F9FB 0%, #E8EDF2 50%, #DAE2E9 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         position: relative;
     }
     
