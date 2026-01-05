@@ -17,46 +17,41 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
     
+    /* 1. Set body and app background */
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    .stApp {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    /* 2. Make all containers transparent */
+    .main .block-container,
+    .stApp > div,
+    section[data-testid="stSidebar"] > div,
+    div[data-testid="stVerticalBlock"] {
+        background-color: transparent !important;
+    }
+    
+    /* 3. Make cards semi-transparent */
+    div[data-testid="stExpander"],
+    div[data-testid="stContainer"],
+    .unilever-card {
+        background: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(10px);
+    }
+    
+    /* 4. Style everything else */
     * {
         font-family: 'Poppins', sans-serif;
     }
     
-    /* PROFESSIONAL MAIN BACKGROUND */
-    .main {
-        padding: 1.5rem;
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-        position: relative;
-    }
-    
-    .main::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: 
-            radial-gradient(circle at 20% 50%, rgba(0,87,168,0.03) 0%, transparent 50%),
-            radial-gradient(circle at 80% 80%, rgba(0,169,224,0.03) 0%, transparent 50%);
-        pointer-events: none;
-        z-index: 0;
-    }
-    
-    .main > div {
-        position: relative;
-        z-index: 1;
-    }
-    
-    /* SIDEBAR */
+    /* Rest of your existing CSS styles continue below... */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0057A8 0%, #003D7A 100%);
         padding: 0;
         box-shadow: 4px 0 12px rgba(0,0,0,0.1);
-    }
-    
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
     
     /* UNILEVER HEADER IN SIDEBAR */
     .unilever-header {
