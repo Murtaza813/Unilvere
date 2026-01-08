@@ -960,6 +960,31 @@ def page_dashboard():
     """Enhanced Market Intelligence Dashboard"""
     
     # ====================
+    # CLEAR CACHE AND SESSION STATE FIRST
+    # ====================
+    import streamlit as st
+    from datetime import datetime
+    
+    # Clear ALL cache
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    
+    # Clear widget states related to dashboard
+    keys_to_delete = []
+    for key in st.session_state.keys():
+        if any(kw in key for kw in ['alert_', 'price_', 'forecast_', 'tab']):
+            keys_to_delete.append(key)
+    
+    for key in keys_to_delete:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # Force rerun to start fresh
+    if 'dashboard_refreshed' not in st.session_state:
+        st.session_state.dashboard_refreshed = True
+        st.rerun()
+    
+    # ====================
     # HERO SECTION
     # ====================
     st.markdown("""
