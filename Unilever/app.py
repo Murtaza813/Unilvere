@@ -1503,7 +1503,7 @@ def page_dashboard():
         with col_settings:
             st.markdown("##### 🔔 Alert Settings")
             
-# Price alert configuration
+            # Price alert configuration
             st.number_input(
                 "Alert when price crosses (PKR/kg):",
                 min_value=80.0,
