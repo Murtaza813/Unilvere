@@ -979,7 +979,6 @@ def page_dashboard():
     current_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-1]
     week_ago_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-7] if len(df_market) > 7 else current_price
     monthly_avg = df_market[df_market['Date'] >= (datetime.today() - timedelta(days=30))]['Mandi_Price_PKR_per_Kg'].mean()
-    quarterly_avg = df_market[df_market['Date'] >= (datetime.today() - timedelta(days=90))]['Mandi_Price_PKR_per_Kg'].mean()
     
     weekly_change_pct = ((current_price - week_ago_price) / week_ago_price * 100) if week_ago_price > 0 else 0
     monthly_change_pct = ((current_price - monthly_avg) / monthly_avg * 100) if monthly_avg > 0 else 0
@@ -1041,13 +1040,10 @@ def page_dashboard():
         
         if volatility < 5:
             vol_status = "Low"
-            vol_color = "green"
         elif volatility < 10:
             vol_status = "Medium"
-            vol_color = "orange"
         else:
             vol_status = "High"
-            vol_color = "red"
         
         st.metric(
             label="Price Volatility",
@@ -1124,7 +1120,7 @@ def page_dashboard():
             selected_region = st.selectbox(
                 "Select Region for Analysis:",
                 df_market['Region'].unique(),
-                key="price_region"
+                key="price_region_tab1"
             )
             
             region_data = df_market[df_market['Region'] == selected_region].copy()
@@ -1141,8 +1137,8 @@ def page_dashboard():
             st.markdown("##### 🔍 Price Insights")
             
             # Price momentum
-            last_7_prices = region_data['Mandi_Price_PKR_per_Kg'].tail(7).values
-            if len(last_7_prices) >= 2:
+            if len(region_data) >= 7:
+                last_7_prices = region_data['Mandi_Price_PKR_per_Kg'].tail(7).values
                 momentum_7d = ((last_7_prices[-1] - last_7_prices[0]) / last_7_prices[0]) * 100
                 
                 if momentum_7d > 3:
@@ -1162,15 +1158,15 @@ def page_dashboard():
             
             high_52w = region_data['Mandi_Price_PKR_per_Kg'].max()
             low_52w = region_data['Mandi_Price_PKR_per_Kg'].min()
-            current_price = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
+            current_price_region = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
             
             st.write(f"**52-Week High:** PKR {high_52w:.2f}")
             st.write(f"**52-Week Low:** PKR {low_52w:.2f}")
-            st.write(f"**Current:** PKR {current_price:.2f}")
+            st.write(f"**Current:** PKR {current_price_region:.2f}")
             
             # Position in range
             price_range = high_52w - low_52w
-            position_pct = ((current_price - low_52w) / price_range) * 100 if price_range > 0 else 50
+            position_pct = ((current_price_region - low_52w) / price_range) * 100 if price_range > 0 else 50
             
             st.progress(position_pct / 100)
             st.caption(f"Position in range: {position_pct:.0f}%")
@@ -1209,8 +1205,10 @@ def page_dashboard():
             for region in regions:
                 region_data = df_market[df_market['Region'] == region]
                 current_price_reg = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
-                week_change = ((current_price_reg - region_data['Mandi_Price_PKR_per_Kg'].iloc[-7]) / 
-                              region_data['Mandi_Price_PKR_per_Kg'].iloc[-7] * 100) if len(region_data) > 7 else 0
+                week_change = 0
+                if len(region_data) > 7:
+                    week_change = ((current_price_reg - region_data['Mandi_Price_PKR_per_Kg'].iloc[-7]) / 
+                                  region_data['Mandi_Price_PKR_per_Kg'].iloc[-7] * 100)
                 
                 current_prices.append({
                     'Region': region,
@@ -1244,45 +1242,57 @@ def page_dashboard():
             st.markdown("##### 🎯 Regional Recommendations")
             
             # Find cheapest and most expensive regions
-            cheapest_region = df_regional.loc[df_regional['Current Price'].idxmin()]
-            expensive_region = df_regional.loc[df_regional['Current Price'].idxmax()]
-            
-            price_diff = expensive_region['Current Price'] - cheapest_region['Current Price']
-            
-            st.success(f"""
-            **💰 Best Value: {cheapest_region['Region']}**
-            - Price: PKR {cheapest_region['Current Price']:.2f}
-            - Change: {cheapest_region['Weekly Change']:+.1f}%
-            - Savings: PKR {price_diff:.2f}/kg vs {expensive_region['Region']}
-            """)
-            
-            st.warning(f"""
-            **⚡ Most Expensive: {expensive_region['Region']}**
-            - Price: PKR {expensive_region['Current Price']:.2f}
-            - Change: {expensive_region['Weekly Change']:+.1f}%
-            - Premium: +{price_diff:.2f}/kg
-            """)
+            if not df_regional.empty:
+                cheapest_region = df_regional.loc[df_regional['Current Price'].idxmin()]
+                expensive_region = df_regional.loc[df_regional['Current Price'].idxmax()]
+                
+                price_diff = expensive_region['Current Price'] - cheapest_region['Current Price']
+                
+                st.success(f"""
+                **💰 Best Value: {cheapest_region['Region']}**
+                - Price: PKR {cheapest_region['Current Price']:.2f}
+                - Change: {cheapest_region['Weekly Change']:+.1f}%
+                - Savings: PKR {price_diff:.2f}/kg vs {expensive_region['Region']}
+                """)
+                
+                st.warning(f"""
+                **⚡ Most Expensive: {expensive_region['Region']}**
+                - Price: PKR {expensive_region['Current Price']:.2f}
+                - Change: {expensive_region['Weekly Change']:+.1f}%
+                - Premium: +{price_diff:.2f}/kg
+                """)
             
             st.markdown("---")
             
             # Transportation cost calculator
             st.markdown("##### 🚚 Transport Economics")
             
-            transport_rate = st.slider("Transport Cost (PKR/ton/km)", 2.0, 10.0, 5.0, 0.5)
-            distance = st.number_input("Distance (km)", 50, 500, 100)
+            transport_rate = st.slider(
+                "Transport Cost (PKR/ton/km)",
+                2.0, 10.0, 5.0, 0.5,
+                key="transport_rate_tab2"
+            )
             
-            transport_cost = (transport_rate * distance) / 1000  # PKR per kg
+            distance = st.number_input(
+                "Distance (km)",
+                50, 500, 100,
+                key="distance_tab2"
+            )
             
-            st.info(f"""
-            **Transport Cost:** PKR {transport_cost:.2f}/kg
-            **Effective Price:** PKR {cheapest_region['Current Price'] + transport_cost:.2f}/kg
-            **Net Savings:** PKR {price_diff - transport_cost:.2f}/kg
-            """)
-            
-            if (price_diff - transport_cost) > 0:
-                st.success("✅ Still cheaper after transport!")
-            else:
-                st.error("❌ Transport cost erodes savings")
+            if not df_regional.empty and 'Current Price' in df_regional.columns:
+                cheapest_price = df_regional['Current Price'].min()
+                transport_cost = (transport_rate * distance) / 1000  # PKR per kg
+                
+                st.info(f"""
+                **Transport Cost:** PKR {transport_cost:.2f}/kg
+                **Effective Price:** PKR {cheapest_price + transport_cost:.2f}/kg
+                **Net Savings:** PKR {price_diff - transport_cost:.2f}/kg
+                """)
+                
+                if (price_diff - transport_cost) > 0:
+                    st.success("✅ Still cheaper after transport!")
+                else:
+                    st.error("❌ Transport cost erodes savings")
     
     # ====================
     # TAB 3: MARKET FORECAST
@@ -1293,7 +1303,7 @@ def page_dashboard():
         forecast_region = st.selectbox(
             "Select Region for Forecast:",
             df_market['Region'].unique(),
-            key="forecast_region_select"
+            key="forecast_region_tab3"
         )
         
         # Generate forecast
@@ -1307,105 +1317,115 @@ def page_dashboard():
         forecast_df = forecast_df.rename(columns={'Mandi_Price_PKR_per_Kg': 'Forecast'})
         
         # Create combined chart
-        import altair as alt
-        
-        hist_chart = alt.Chart(hist_df).mark_line(color='blue', strokeDash=[5,5]).encode(
-            x='Date:T',
-            y='Historical:Q',
-            tooltip=['Date:T', 'Historical:Q']
-        )
-        
-        forecast_chart = alt.Chart(forecast_df).mark_line(color='red').encode(
-            x='Date:T',
-            y='Forecast:Q',
-            tooltip=['Date:T', 'Forecast:Q']
-        )
-        
-        combined_chart = (hist_chart + forecast_chart).properties(
-            height=400,
-            title=f'Price Forecast for {forecast_region}'
-        ).configure_axis(
-            grid=False
-        )
-        
-        st.altair_chart(combined_chart, use_container_width=True)
+        try:
+            import altair as alt
+            
+            hist_chart = alt.Chart(hist_df).mark_line(color='blue', strokeDash=[5,5]).encode(
+                x='Date:T',
+                y='Historical:Q',
+                tooltip=['Date:T', 'Historical:Q']
+            )
+            
+            forecast_chart = alt.Chart(forecast_df).mark_line(color='red').encode(
+                x='Date:T',
+                y='Forecast:Q',
+                tooltip=['Date:T', 'Forecast:Q']
+            )
+            
+            combined_chart = (hist_chart + forecast_chart).properties(
+                height=400,
+                title=f'Price Forecast for {forecast_region}'
+            ).configure_axis(
+                grid=False
+            )
+            
+            st.altair_chart(combined_chart, use_container_width=True)
+        except:
+            # Fallback to line chart if altair fails
+            combined_df = pd.concat([
+                hist_df[['Date', 'Historical']].rename(columns={'Historical': 'Price'}),
+                forecast_df[['Date', 'Forecast']].rename(columns={'Forecast': 'Price'})
+            ])
+            st.line_chart(combined_df.set_index('Date'))
         
         # Forecast insights
         col_fc1, col_fc2, col_fc3 = st.columns(3)
         
         with col_fc1:
-            current = hist_df['Historical'].iloc[-1]
-            forecast_end = forecast_df['Forecast'].iloc[-1]
-            change_pct = ((forecast_end - current) / current) * 100
-            
-            st.metric(
-                "30-Day Forecast",
-                f"PKR {forecast_end:.2f}",
-                f"{change_pct:+.1f}%"
-            )
+            if not hist_df.empty and not forecast_df.empty:
+                current = hist_df['Historical'].iloc[-1]
+                forecast_end = forecast_df['Forecast'].iloc[-1]
+                change_pct = ((forecast_end - current) / current) * 100 if current > 0 else 0
+                
+                st.metric(
+                    "30-Day Forecast",
+                    f"PKR {forecast_end:.2f}",
+                    f"{change_pct:+.1f}%"
+                )
         
         with col_fc2:
             # Confidence score based on trend strength
-            confidence = max(60, min(95, 85 - abs(change_pct)))
-            
-            st.metric(
-                "Forecast Confidence",
-                f"{confidence:.0f}%",
-                "Based on trend analysis"
-            )
+            if 'change_pct' in locals():
+                confidence = max(60, min(95, 85 - abs(change_pct)))
+                st.metric(
+                    "Forecast Confidence",
+                    f"{confidence:.0f}%",
+                    "Based on trend analysis"
+                )
         
         with col_fc3:
             # Volatility projection
-            forecast_vol = forecast_df['Forecast'].std() / forecast_df['Forecast'].mean() * 100
-            
-            st.metric(
-                "Projected Volatility",
-                f"{forecast_vol:.1f}%",
-                "Lower is better"
-            )
+            if not forecast_df.empty:
+                forecast_vol = forecast_df['Forecast'].std() / forecast_df['Forecast'].mean() * 100
+                st.metric(
+                    "Projected Volatility",
+                    f"{forecast_vol:.1f}%",
+                    "Lower is better"
+                )
         
         # Trading signals
         st.markdown("##### 🎯 Trading Signals")
         
-        if change_pct > 5:
-            with st.container():
-                st.error("""
-                **SELLING SIGNAL DETECTED** 🚨
-                
-                **Action Required:**
-                1. Consider forward contracts
-                2. Increase inventory levels
-                3. Hedge price risk
-                4. Negotiate fixed prices with suppliers
-                
-                **Rationale:** Prices expected to rise significantly in next 30 days
-                """)
-        elif change_pct < -5:
-            with st.container():
-                st.success("""
-                **BUYING SIGNAL DETECTED** ✅
-                
-                **Action Required:**
-                1. Delay large purchases
-                2. Consider spot buying
-                3. Reduce forward coverage
-                4. Leverage bargaining power
-                
-                **Rationale:** Prices expected to decline in next 30 days
-                """)
-        else:
-            with st.container():
-                st.info("""
-                **NEUTRAL MARKET** ⚖️
-                
-                **Recommended Action:**
-                1. Maintain current strategy
-                2. Regular procurement schedule
-                3. Monitor market closely
-                4. Stay flexible
-                
-                **Rationale:** Prices expected to remain stable
-                """)
+        if 'change_pct' in locals():
+            if change_pct > 5:
+                with st.container():
+                    st.error("""
+                    **SELLING SIGNAL DETECTED** 🚨
+                    
+                    **Action Required:**
+                    1. Consider forward contracts
+                    2. Increase inventory levels
+                    3. Hedge price risk
+                    4. Negotiate fixed prices with suppliers
+                    
+                    **Rationale:** Prices expected to rise significantly in next 30 days
+                    """)
+            elif change_pct < -5:
+                with st.container():
+                    st.success("""
+                    **BUYING SIGNAL DETECTED** ✅
+                    
+                    **Action Required:**
+                    1. Delay large purchases
+                    2. Consider spot buying
+                    3. Reduce forward coverage
+                    4. Leverage bargaining power
+                    
+                    **Rationale:** Prices expected to decline in next 30 days
+                    """)
+            else:
+                with st.container():
+                    st.info("""
+                    **NEUTRAL MARKET** ⚖️
+                    
+                    **Recommended Action:**
+                    1. Maintain current strategy
+                    2. Regular procurement schedule
+                    3. Monitor market closely
+                    4. Stay flexible
+                    
+                    **Rationale:** Prices expected to remain stable
+                    """)
     
     # ====================
     # TAB 4: RISK ALERTS
@@ -1562,20 +1582,22 @@ def page_dashboard():
                 'Premium': region_price - current_price
             })
         
-        df_reg_stats = pd.DataFrame(regional_stats)
-        cheapest_region = df_reg_stats.loc[df_reg_stats['Price'].idxmin()]
-        
-        if cheapest_region['Premium'] < -1:
-            recommendations.append({
-                "priority": "MEDIUM",
-                "title": f"Regional Shift to {cheapest_region['Region']}",
-                "reason": f"PKR {abs(cheapest_region['Premium']):.2f}/kg cheaper than average",
-                "action": f"Increase procurement from {cheapest_region['Region']}",
-                "savings": f"PKR {abs(cheapest_region['Premium'])*1000:.0f}/ton",
-                "timing": "Next procurement cycle"
-            })
+        if regional_stats:
+            df_reg_stats = pd.DataFrame(regional_stats)
+            cheapest_region = df_reg_stats.loc[df_reg_stats['Price'].idxmin()]
+            
+            if cheapest_region['Premium'] < -1:
+                recommendations.append({
+                    "priority": "MEDIUM",
+                    "title": f"Regional Shift to {cheapest_region['Region']}",
+                    "reason": f"PKR {abs(cheapest_region['Premium']):.2f}/kg cheaper than average",
+                    "action": f"Increase procurement from {cheapest_region['Region']}",
+                    "savings": f"PKR {abs(cheapest_region['Premium'])*1000:.0f}/ton",
+                    "timing": "Next procurement cycle"
+                })
         
         # Recommendation 3: Volume strategy
+        current_month = datetime.today().month
         if current_month in [3, 4, 5]:
             recommendations.append({
                 "priority": "MEDIUM",
@@ -1661,7 +1683,8 @@ def page_dashboard():
                 min_value=100,
                 max_value=10000,
                 value=1000,
-                step=100
+                step=100,
+                key="monthly_volume_tab5"
             )
             
             target_price = st.number_input(
@@ -1669,7 +1692,8 @@ def page_dashboard():
                 min_value=80.0,
                 max_value=130.0,
                 value=current_price * 0.95,
-                step=0.5
+                step=0.5,
+                key="target_price_tab5"
             )
         
         with col_calc2:
@@ -1717,7 +1741,8 @@ def page_dashboard():
             data=csv_data,
             file_name=f"market_data_{datetime.today().strftime('%Y%m%d')}.csv",
             mime="text/csv",
-            use_container_width=True
+            use_container_width=True,
+            key="download_data_btn"
         )
     
     with col_export2:
@@ -1751,7 +1776,8 @@ def page_dashboard():
             data=report_csv,
             file_name=f"market_report_{datetime.today().strftime('%Y%m%d')}.csv",
             mime="text/csv",
-            use_container_width=True
+            use_container_width=True,
+            key="download_report_btn"
         )
     
     with col_export3:
@@ -1761,7 +1787,7 @@ def page_dashboard():
         st.write("Weekly report: Every Monday")
         st.write("Monthly analysis: 1st of each month")
         
-        if st.button("🔄 Refresh Data Now", use_container_width=True):
+        if st.button("🔄 Refresh Data Now", use_container_width=True, key="refresh_btn"):
             st.cache_data.clear()
             st.rerun()
     
