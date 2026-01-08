@@ -1490,7 +1490,7 @@ def page_dashboard():
                 max_value=130.0,
                 value=110.0,
                 step=0.5,
-                key="alert_price"
+                key="alert_price_tab4"
             )
             
             # Volatility alert
@@ -1500,7 +1500,7 @@ def page_dashboard():
                 max_value=20,
                 value=10,
                 step=1,
-                key="alert_volatility"
+                key="alert_volatility_tab4"
             )
             
             # Regional spread alert
@@ -1510,16 +1510,16 @@ def page_dashboard():
                 max_value=10,
                 value=5,
                 step=0.5,
-                key="alert_spread"
+                key="alert_spread_tab4"
             )
             
             # Notification preferences
             st.markdown("##### 📱 Notifications")
-            email_alerts = st.checkbox("Email Alerts", value=True)
-            sms_alerts = st.checkbox("SMS Alerts", value=True)
-            whatsapp_alerts = st.checkbox("WhatsApp Alerts", value=True)
+            email_alerts = st.checkbox("Email Alerts", value=True, key="email_tab4")
+            sms_alerts = st.checkbox("SMS Alerts", value=True, key="sms_tab4")
+            whatsapp_alerts = st.checkbox("WhatsApp Alerts", value=True, key="whatsapp_tab4")
             
-            if st.button("💾 Save Alert Settings", use_container_width=True):
+            if st.button("💾 Save Alert Settings", use_container_width=True, key="save_button_tab4"):
                 st.success("Alert settings saved!")
     
     # ====================
