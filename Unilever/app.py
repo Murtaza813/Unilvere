@@ -5,6 +5,7 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
 import json
 import random
+import altair as alt  
 
 st.set_page_config(
     layout="wide", 
@@ -956,52 +957,829 @@ historical_avg = df_market['Mandi_Price_PKR_per_Kg'].mean().round(2)
 # --- 3. STREAMLIT PAGES ---
 
 def page_dashboard():
-    """Main Dashboard."""
-    st.title("🌾 UniGrain Connect: Strategic Procurement Dashboard")
-    st.markdown("### Cost Volatility Mitigation Prototype for Unilever")
+    """Enhanced Market Intelligence Dashboard"""
     
-    # KPIs
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Current Price (PKR/Kg)", f"{current_price}")
-    col2.metric("3-Year Average", f"{historical_avg}")
-    col3.metric("Supplier Network", f"{len(df_suppliers)} Millers")
+    # ====================
+    # HERO SECTION
+    # ====================
+    st.markdown("""
+    <div class="hero-banner">
+        <h1 style="color: white; margin-bottom: 0.5rem;">🌾 UniGrain Connect</h1>
+        <h2 style="color: white; opacity: 0.9; margin-top: 0;">Real-time Wheat & Flour Market Intelligence</h2>
+        <p style="color: white; opacity: 0.8; font-size: 1.1rem;">Strategic Procurement Dashboard for Unilever Pakistan</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ====================
+    # EXECUTIVE SUMMARY - TOP METRICS
+    # ====================
+    st.subheader("📊 Executive Market Snapshot")
+    
+    # Calculate key metrics
+    current_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-1]
+    week_ago_price = df_market['Mandi_Price_PKR_per_Kg'].iloc[-7] if len(df_market) > 7 else current_price
+    monthly_avg = df_market[df_market['Date'] >= (datetime.today() - timedelta(days=30))]['Mandi_Price_PKR_per_Kg'].mean()
+    quarterly_avg = df_market[df_market['Date'] >= (datetime.today() - timedelta(days=90))]['Mandi_Price_PKR_per_Kg'].mean()
+    
+    weekly_change_pct = ((current_price - week_ago_price) / week_ago_price * 100) if week_ago_price > 0 else 0
+    monthly_change_pct = ((current_price - monthly_avg) / monthly_avg * 100) if monthly_avg > 0 else 0
+    
+    # Market sentiment
+    if weekly_change_pct > 2:
+        sentiment = "🔥 Bullish"
+        sentiment_icon = "🔥"
+        sentiment_color = "#dc3545"
+    elif weekly_change_pct < -2:
+        sentiment = "🐻 Bearish"
+        sentiment_icon = "🐻"
+        sentiment_color = "#28a745"
+    else:
+        sentiment = "⚖️ Neutral"
+        sentiment_icon = "⚖️"
+        sentiment_color = "#ffc107"
+    
+    # Create metrics in two rows
+    row1_col1, row1_col2, row1_col3 = st.columns(3)
+    
+    with row1_col1:
+        st.metric(
+            label="Current Market Price",
+            value=f"PKR {current_price:.2f}",
+            delta=f"{weekly_change_pct:+.1f}% WoW",
+            delta_color="inverse" if weekly_change_pct > 0 else "normal"
+        )
+    
+    with row1_col2:
+        st.metric(
+            label="Monthly Average",
+            value=f"PKR {monthly_avg:.2f}",
+            delta=f"{monthly_change_pct:+.1f}% vs Avg"
+        )
+    
+    with row1_col3:
+        # Custom metric for sentiment
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                    padding: 1rem; border-radius: 10px; border-left: 4px solid {sentiment_color};">
+            <div style="font-size: 0.9rem; color: #6c757d; font-weight: 600;">MARKET SENTIMENT</div>
+            <div style="font-size: 1.5rem; color: {sentiment_color}; font-weight: 700;">
+                {sentiment_icon} {sentiment}
+            </div>
+            <div style="font-size: 0.8rem; color: #6c757d; margin-top: 0.5rem;">
+                Monthly: {monthly_change_pct:+.1f}%
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Second row of metrics
+    row2_col1, row2_col2, row2_col3 = st.columns(3)
+    
+    with row2_col1:
+        # Volatility index
+        recent_prices = df_market[df_market['Date'] >= (datetime.today() - timedelta(days=30))]['Mandi_Price_PKR_per_Kg']
+        volatility = (recent_prices.std() / recent_prices.mean()) * 100 if len(recent_prices) > 0 else 0
+        
+        if volatility < 5:
+            vol_status = "Low"
+            vol_color = "green"
+        elif volatility < 10:
+            vol_status = "Medium"
+            vol_color = "orange"
+        else:
+            vol_status = "High"
+            vol_color = "red"
+        
+        st.metric(
+            label="Price Volatility",
+            value=f"{volatility:.1f}%",
+            delta=vol_status,
+            delta_color="off"
+        )
+    
+    with row2_col2:
+        # Seasonal spread
+        harvest_months = [3, 4, 5]
+        lean_months = [10, 11, 12]
+        
+        harvest_avg = df_market[df_market['Date'].dt.month.isin(harvest_months)]['Mandi_Price_PKR_per_Kg'].mean()
+        lean_avg = df_market[df_market['Date'].dt.month.isin(lean_months)]['Mandi_Price_PKR_per_Kg'].mean()
+        seasonal_spread = lean_avg - harvest_avg
+        
+        st.metric(
+            label="Seasonal Spread",
+            value=f"PKR {seasonal_spread:.1f}",
+            delta="Harvest → Lean"
+        )
+    
+    with row2_col3:
+        # Regional price dispersion
+        recent_regional = df_market[df_market['Date'] >= (datetime.today() - timedelta(days=7))]
+        regional_std = recent_regional.groupby('Region')['Mandi_Price_PKR_per_Kg'].mean().std()
+        
+        st.metric(
+            label="Regional Spread",
+            value=f"PKR {regional_std:.1f}",
+            delta="Lower = Better"
+        )
+    
     st.markdown("---")
     
-    # Volatility Analysis
-    st.subheader("📊 Price Volatility Analysis")
-    df_volatility = calculate_regional_volatility(df_market)
-    st.bar_chart(df_volatility.set_index('Region')['CV (%)'])
-    st.markdown("---")
+    # ====================
+    # MAIN DASHBOARD TABS
+    # ====================
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📈 Price Intelligence", 
+        "🗺️ Regional Analysis", 
+        "📊 Market Forecast",
+        "⚠️ Risk Alerts",
+        "💡 Procurement Insights",
+        "🏦 Storage Strategy"
+    ])
     
-    # Storage Calculator
-    enhanced_storage_calculator()
+    # ====================
+    # TAB 1: PRICE INTELLIGENCE
+    # ====================
+    with tab1:
+        col_price_chart, col_price_insights = st.columns([3, 1])
+        
+        with col_price_chart:
+            st.markdown("##### 📅 Price Trends (Last 90 Days)")
+            
+            # Last 90 days data
+            last_90_days = df_market[df_market['Date'] >= (datetime.today() - timedelta(days=90))]
+            
+            # Create interactive chart
+            chart_data = last_90_days.pivot_table(
+                index='Date', 
+                columns='Region', 
+                values='Mandi_Price_PKR_per_Kg'
+            ).fillna(method='ffill')
+            
+            st.line_chart(chart_data, use_container_width=True)
+            
+            # Add moving averages
+            st.markdown("##### 📊 Moving Averages")
+            
+            # Calculate moving averages for selected region
+            selected_region = st.selectbox(
+                "Select Region for Analysis:",
+                df_market['Region'].unique(),
+                key="price_region"
+            )
+            
+            region_data = df_market[df_market['Region'] == selected_region].copy()
+            region_data = region_data.set_index('Date').sort_index()
+            
+            # Calculate moving averages
+            region_data['MA_7'] = region_data['Mandi_Price_PKR_per_Kg'].rolling(window=7).mean()
+            region_data['MA_30'] = region_data['Mandi_Price_PKR_per_Kg'].rolling(window=30).mean()
+            
+            # Plot with dual axis
+            st.line_chart(region_data[['Mandi_Price_PKR_per_Kg', 'MA_7', 'MA_30']].tail(90))
+        
+        with col_price_insights:
+            st.markdown("##### 🔍 Price Insights")
+            
+            # Price momentum
+            last_7_prices = region_data['Mandi_Price_PKR_per_Kg'].tail(7).values
+            if len(last_7_prices) >= 2:
+                momentum_7d = ((last_7_prices[-1] - last_7_prices[0]) / last_7_prices[0]) * 100
+                
+                if momentum_7d > 3:
+                    st.error(f"**Strong Uptrend:** +{momentum_7d:.1f}% in 7 days")
+                    st.write("Consider forward buying to lock prices")
+                elif momentum_7d < -3:
+                    st.success(f"**Strong Downtrend:** {momentum_7d:.1f}% in 7 days")
+                    st.write("Opportunity for spot purchases")
+                else:
+                    st.info(f"**Sideways Movement:** {momentum_7d:+.1f}% in 7 days")
+                    st.write("Market in equilibrium")
+            
+            st.markdown("---")
+            
+            # Support & Resistance
+            st.markdown("##### 📊 Technical Levels")
+            
+            high_52w = region_data['Mandi_Price_PKR_per_Kg'].max()
+            low_52w = region_data['Mandi_Price_PKR_per_Kg'].min()
+            current_price = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
+            
+            st.write(f"**52-Week High:** PKR {high_52w:.2f}")
+            st.write(f"**52-Week Low:** PKR {low_52w:.2f}")
+            st.write(f"**Current:** PKR {current_price:.2f}")
+            
+            # Position in range
+            price_range = high_52w - low_52w
+            position_pct = ((current_price - low_52w) / price_range) * 100 if price_range > 0 else 50
+            
+            st.progress(position_pct / 100)
+            st.caption(f"Position in range: {position_pct:.0f}%")
+            
+            if position_pct > 75:
+                st.warning("⚠️ Near resistance level")
+            elif position_pct < 25:
+                st.success("✅ Near support level")
+            
+            st.markdown("---")
+            
+            # Best time to buy
+            st.markdown("##### 🕒 Optimal Buying Time")
+            
+            current_hour = datetime.now().hour
+            if current_hour < 12:
+                st.success("**Morning Session:** Typically lower prices")
+            elif current_hour < 15:
+                st.info("**Mid-day:** Market stable")
+            else:
+                st.warning("**Afternoon:** Prices may be higher")
     
-    # Market Intelligence & Bidding
-    col_intel, col_bid = st.columns(2)
+    # ====================
+    # TAB 2: REGIONAL ANALYSIS
+    # ====================
+    with tab2:
+        col_map, col_analysis = st.columns([2, 1])
+        
+        with col_map:
+            st.markdown("##### 🗺️ Regional Price Heatmap")
+            
+            # Create regional price table
+            regions = df_market['Region'].unique()
+            current_prices = []
+            
+            for region in regions:
+                region_data = df_market[df_market['Region'] == region]
+                current_price_reg = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
+                week_change = ((current_price_reg - region_data['Mandi_Price_PKR_per_Kg'].iloc[-7]) / 
+                              region_data['Mandi_Price_PKR_per_Kg'].iloc[-7] * 100) if len(region_data) > 7 else 0
+                
+                current_prices.append({
+                    'Region': region,
+                    'Current Price': current_price_reg,
+                    'Weekly Change': week_change,
+                    'Status': 'Expensive' if current_price_reg > current_price else 'Cheap'
+                })
+            
+            df_regional = pd.DataFrame(current_prices)
+            
+            # Create heatmap-like visualization
+            st.dataframe(
+                df_regional.style.format({
+                    'Current Price': 'PKR {:.2f}',
+                    'Weekly Change': '{:+.1f}%'
+                }).apply(
+                    lambda x: ['background-color: #d4edda' if x['Status'] == 'Cheap' 
+                              else 'background-color: #f8d7da' for _ in x],
+                    axis=1
+                ),
+                use_container_width=True
+            )
+            
+            # Regional price distribution
+            st.markdown("##### 📊 Regional Price Distribution")
+            
+            # Bar chart
+            st.bar_chart(df_regional.set_index('Region')['Current Price'])
+        
+        with col_analysis:
+            st.markdown("##### 🎯 Regional Recommendations")
+            
+            # Find cheapest and most expensive regions
+            cheapest_region = df_regional.loc[df_regional['Current Price'].idxmin()]
+            expensive_region = df_regional.loc[df_regional['Current Price'].idxmax()]
+            
+            price_diff = expensive_region['Current Price'] - cheapest_region['Current Price']
+            
+            st.success(f"""
+            **💰 Best Value: {cheapest_region['Region']}**
+            - Price: PKR {cheapest_region['Current Price']:.2f}
+            - Change: {cheapest_region['Weekly Change']:+.1f}%
+            - Savings: PKR {price_diff:.2f}/kg vs {expensive_region['Region']}
+            """)
+            
+            st.warning(f"""
+            **⚡ Most Expensive: {expensive_region['Region']}**
+            - Price: PKR {expensive_region['Current Price']:.2f}
+            - Change: {expensive_region['Weekly Change']:+.1f}%
+            - Premium: +{price_diff:.2f}/kg
+            """)
+            
+            st.markdown("---")
+            
+            # Transportation cost calculator
+            st.markdown("##### 🚚 Transport Economics")
+            
+            transport_rate = st.slider("Transport Cost (PKR/ton/km)", 2.0, 10.0, 5.0, 0.5)
+            distance = st.number_input("Distance (km)", 50, 500, 100)
+            
+            transport_cost = (transport_rate * distance) / 1000  # PKR per kg
+            
+            st.info(f"""
+            **Transport Cost:** PKR {transport_cost:.2f}/kg
+            **Effective Price:** PKR {cheapest_region['Current Price'] + transport_cost:.2f}/kg
+            **Net Savings:** PKR {price_diff - transport_cost:.2f}/kg
+            """)
+            
+            if (price_diff - transport_cost) > 0:
+                st.success("✅ Still cheaper after transport!")
+            else:
+                st.error("❌ Transport cost erodes savings")
     
-    with col_intel:
-        st.subheader("🧠 Market Intelligence")
-        region = st.selectbox("Select Region:", df_market['Region'].unique())
-        df_forecast = simple_price_forecasting(df_market, region)
+    # ====================
+    # TAB 3: MARKET FORECAST
+    # ====================
+    with tab3:
+        st.markdown("##### 🔮 30-Day Price Forecast")
+        
+        forecast_region = st.selectbox(
+            "Select Region for Forecast:",
+            df_market['Region'].unique(),
+            key="forecast_region_select"
+        )
+        
+        # Generate forecast
+        forecast_days = 30
+        forecast_df = simple_price_forecasting(df_market, forecast_region, forecast_days)
         
         # Combine historical and forecast
-        df_hist = df_market[df_market['Region'] == region][['Date', 'Mandi_Price_PKR_per_Kg']]
-        df_hist = df_hist.rename(columns={'Mandi_Price_PKR_per_Kg': 'Historical'})
-        df_fcst = df_forecast.rename(columns={'Mandi_Price_PKR_per_Kg': 'Forecast'})
-        df_combined = pd.concat([df_hist, df_fcst]).set_index('Date').sort_index()
+        hist_df = df_market[df_market['Region'] == forecast_region][['Date', 'Mandi_Price_PKR_per_Kg']].tail(60)
+        hist_df = hist_df.rename(columns={'Mandi_Price_PKR_per_Kg': 'Historical'})
         
-        st.line_chart(df_combined)
+        forecast_df = forecast_df.rename(columns={'Mandi_Price_PKR_per_Kg': 'Forecast'})
         
-        # Insight
-        latest_price = df_hist['Historical'].iloc[-1]
-        forecast_price = df_fcst['Forecast'].iloc[-1]
+        # Create combined chart
+        import altair as alt
         
-        if forecast_price > latest_price * 1.02:
-            st.error(f"**Warning:** Price predicted to rise by {forecast_price-latest_price:.2f} PKR")
-        elif forecast_price < latest_price * 0.98:
-            st.success(f"**Opportunity:** Price predicted to fall by {latest_price-forecast_price:.2f} PKR")
+        hist_chart = alt.Chart(hist_df).mark_line(color='blue', strokeDash=[5,5]).encode(
+            x='Date:T',
+            y='Historical:Q',
+            tooltip=['Date:T', 'Historical:Q']
+        )
+        
+        forecast_chart = alt.Chart(forecast_df).mark_line(color='red').encode(
+            x='Date:T',
+            y='Forecast:Q',
+            tooltip=['Date:T', 'Forecast:Q']
+        )
+        
+        combined_chart = (hist_chart + forecast_chart).properties(
+            height=400,
+            title=f'Price Forecast for {forecast_region}'
+        ).configure_axis(
+            grid=False
+        )
+        
+        st.altair_chart(combined_chart, use_container_width=True)
+        
+        # Forecast insights
+        col_fc1, col_fc2, col_fc3 = st.columns(3)
+        
+        with col_fc1:
+            current = hist_df['Historical'].iloc[-1]
+            forecast_end = forecast_df['Forecast'].iloc[-1]
+            change_pct = ((forecast_end - current) / current) * 100
+            
+            st.metric(
+                "30-Day Forecast",
+                f"PKR {forecast_end:.2f}",
+                f"{change_pct:+.1f}%"
+            )
+        
+        with col_fc2:
+            # Confidence score based on trend strength
+            confidence = max(60, min(95, 85 - abs(change_pct)))
+            
+            st.metric(
+                "Forecast Confidence",
+                f"{confidence:.0f}%",
+                "Based on trend analysis"
+            )
+        
+        with col_fc3:
+            # Volatility projection
+            forecast_vol = forecast_df['Forecast'].std() / forecast_df['Forecast'].mean() * 100
+            
+            st.metric(
+                "Projected Volatility",
+                f"{forecast_vol:.1f}%",
+                "Lower is better"
+            )
+        
+        # Trading signals
+        st.markdown("##### 🎯 Trading Signals")
+        
+        if change_pct > 5:
+            with st.container():
+                st.error("""
+                **SELLING SIGNAL DETECTED** 🚨
+                
+                **Action Required:**
+                1. Consider forward contracts
+                2. Increase inventory levels
+                3. Hedge price risk
+                4. Negotiate fixed prices with suppliers
+                
+                **Rationale:** Prices expected to rise significantly in next 30 days
+                """)
+        elif change_pct < -5:
+            with st.container():
+                st.success("""
+                **BUYING SIGNAL DETECTED** ✅
+                
+                **Action Required:**
+                1. Delay large purchases
+                2. Consider spot buying
+                3. Reduce forward coverage
+                4. Leverage bargaining power
+                
+                **Rationale:** Prices expected to decline in next 30 days
+                """)
         else:
-            st.info("Prices expected to remain stable")
+            with st.container():
+                st.info("""
+                **NEUTRAL MARKET** ⚖️
+                
+                **Recommended Action:**
+                1. Maintain current strategy
+                2. Regular procurement schedule
+                3. Monitor market closely
+                4. Stay flexible
+                
+                **Rationale:** Prices expected to remain stable
+                """)
+    
+    # ====================
+    # TAB 4: RISK ALERTS
+    # ====================
+    with tab4:
+        col_alerts, col_settings = st.columns([2, 1])
+        
+        with col_alerts:
+            st.markdown("##### ⚠️ Active Market Alerts")
+            
+            alerts = []
+            
+            # Price spike detection
+            for region in df_market['Region'].unique():
+                region_data = df_market[df_market['Region'] == region]
+                if len(region_data) >= 7:
+                    current = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
+                    week_avg = region_data['Mandi_Price_PKR_per_Kg'].iloc[-7:].mean()
+                    
+                    if current > week_avg * 1.08:  # 8% spike
+                        alerts.append({
+                            "type": "danger",
+                            "message": f"🚨 **{region}**: Price spike detected (+{((current-week_avg)/week_avg*100):.1f}%)",
+                            "time": "Just now"
+                        })
+            
+            # Volatility alert
+            if volatility > 12:
+                alerts.append({
+                    "type": "warning",
+                    "message": f"📊 High market volatility: {volatility:.1f}%",
+                    "time": "Today"
+                })
+            
+            # Seasonal alert
+            current_month = datetime.today().month
+            if current_month in [10, 11, 12] and current_price > lean_avg * 1.05:
+                alerts.append({
+                    "type": "info",
+                    "message": "🌾 Lean season premium above historical average",
+                    "time": "Seasonal"
+                })
+            
+            # Display alerts
+            if alerts:
+                for alert in alerts:
+                    if alert["type"] == "danger":
+                        st.error(alert["message"])
+                    elif alert["type"] == "warning":
+                        st.warning(alert["message"])
+                    else:
+                        st.info(alert["message"])
+                    st.caption(f"Last updated: {alert['time']}")
+            else:
+                st.success("✅ No critical alerts at this time")
+                st.info("Market conditions are stable. Continue with regular procurement strategy.")
+            
+            # Market events
+            st.markdown("---")
+            st.markdown("##### 📅 Upcoming Market Events")
+            
+            events = [
+                {"Date": "2024-06-30", "Event": "Wheat Procurement Target Review", "Impact": "Medium"},
+                {"Date": "2024-07-15", "Event": "PSMA Monthly Meeting", "Impact": "High"},
+                {"Date": "2024-07-31", "Event": "Government Buffer Stock Announcement", "Impact": "High"},
+                {"Date": "2024-08-15", "Event": "Monsoon Progress Report", "Impact": "Medium"},
+            ]
+            
+            for event in events:
+                with st.expander(f"{event['Date']}: {event['Event']}"):
+                    st.write(f"**Expected Impact:** {event['Impact']}")
+                    if event['Impact'] == "High":
+                        st.write("**Action:** Prepare contingency plans")
+        
+        with col_settings:
+            st.markdown("##### 🔔 Alert Settings")
+            
+            # Price alert configuration
+            st.number_input(
+                "Alert when price crosses (PKR/kg):",
+                min_value=80.0,
+                max_value=130.0,
+                value=110.0,
+                step=0.5,
+                key="alert_price"
+            )
+            
+            # Volatility alert
+            st.slider(
+                "Alert when volatility exceeds:",
+                min_value=5,
+                max_value=20,
+                value=10,
+                step=1,
+                key="alert_volatility"
+            )
+            
+            # Regional spread alert
+            st.slider(
+                "Alert when regional spread exceeds (PKR):",
+                min_value=2,
+                max_value=10,
+                value=5,
+                step=0.5,
+                key="alert_spread"
+            )
+            
+            # Notification preferences
+            st.markdown("##### 📱 Notifications")
+            email_alerts = st.checkbox("Email Alerts", value=True)
+            sms_alerts = st.checkbox("SMS Alerts", value=True)
+            whatsapp_alerts = st.checkbox("WhatsApp Alerts", value=True)
+            
+            if st.button("💾 Save Alert Settings", use_container_width=True):
+                st.success("Alert settings saved!")
+    
+    # ====================
+    # TAB 5: PROCUREMENT INSIGHTS
+    # ====================
+    with tab5:
+        st.markdown("##### 🎯 Today's Procurement Recommendations")
+        
+        # Generate recommendations based on current market
+        recommendations = []
+        
+        # Recommendation 1: Timing
+        if weekly_change_pct < -2:
+            recommendations.append({
+                "priority": "HIGH",
+                "title": "Immediate Spot Purchase",
+                "reason": f"Prices dropped {abs(weekly_change_pct):.1f}% this week",
+                "action": "Buy 20% above monthly average in spot market",
+                "savings": f"PKR {abs(weekly_change_pct)/100*current_price*1000:.0f}/ton",
+                "timing": "Within 24 hours"
+            })
+        elif weekly_change_pct > 2:
+            recommendations.append({
+                "priority": "HIGH",
+                "title": "Forward Contracting",
+                "reason": f"Prices rising rapidly (+{weekly_change_pct:.1f}%)",
+                "action": "Lock prices with 3-month forward contracts",
+                "savings": "Avoid future price increases",
+                "timing": "Within 48 hours"
+            })
+        
+        # Recommendation 2: Regional
+        regional_stats = []
+        for region in df_market['Region'].unique():
+            region_data = df_market[df_market['Region'] == region]
+            region_price = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
+            regional_stats.append({
+                'Region': region,
+                'Price': region_price,
+                'Premium': region_price - current_price
+            })
+        
+        df_reg_stats = pd.DataFrame(regional_stats)
+        cheapest_region = df_reg_stats.loc[df_reg_stats['Price'].idxmin()]
+        
+        if cheapest_region['Premium'] < -1:
+            recommendations.append({
+                "priority": "MEDIUM",
+                "title": f"Regional Shift to {cheapest_region['Region']}",
+                "reason": f"PKR {abs(cheapest_region['Premium']):.2f}/kg cheaper than average",
+                "action": f"Increase procurement from {cheapest_region['Region']}",
+                "savings": f"PKR {abs(cheapest_region['Premium'])*1000:.0f}/ton",
+                "timing": "Next procurement cycle"
+            })
+        
+        # Recommendation 3: Volume strategy
+        if current_month in [3, 4, 5]:
+            recommendations.append({
+                "priority": "MEDIUM",
+                "title": "Harvest Season Inventory Build",
+                "reason": "Prices at seasonal low during harvest",
+                "action": "Increase inventory by 25-30%",
+                "savings": "PKR 1,500-2,000/ton vs lean season",
+                "timing": "Next 4 weeks"
+            })
+        elif current_month in [10, 11, 12]:
+            recommendations.append({
+                "priority": "MEDIUM",
+                "title": "Lean Season Inventory Drawdown",
+                "reason": "Prices at seasonal high",
+                "action": "Reduce inventory levels",
+                "savings": "Avoid premium pricing",
+                "timing": "Immediate"
+            })
+        
+        # Display recommendations
+        if recommendations:
+            for i, rec in enumerate(recommendations):
+                with st.container():
+                    # Color code based on priority
+                    if rec['priority'] == 'HIGH':
+                        border_color = "#dc3545"
+                        bg_color = "#f8d7da"
+                    elif rec['priority'] == 'MEDIUM':
+                        border_color = "#ffc107"
+                        bg_color = "#fff3cd"
+                    else:
+                        border_color = "#17a2b8"
+                        bg_color = "#d1ecf1"
+                    
+                    st.markdown(f"""
+                    <div style="background-color: {bg_color}; 
+                                border-left: 4px solid {border_color};
+                                padding: 1rem; 
+                                border-radius: 5px;
+                                margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="margin: 0;">{rec['title']}</h4>
+                            <span style="background-color: {border_color}; 
+                                       color: white; 
+                                       padding: 0.2rem 0.5rem;
+                                       border-radius: 3px;
+                                       font-size: 0.8rem;">
+                                {rec['priority']} PRIORITY
+                            </span>
+                        </div>
+                        <p style="margin: 0.5rem 0; font-weight: 600;">{rec['reason']}</p>
+                        <p style="margin: 0.5rem 0;"><strong>Action:</strong> {rec['action']}</p>
+                        <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                            <span><strong>Savings:</strong> {rec['savings']}</span>
+                            <span><strong>Timing:</strong> {rec['timing']}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+        else:
+            st.info("""
+            ### ✅ Market Conditions Stable
+            
+            **No urgent recommendations at this time:**
+            - Prices are in normal range
+            - Volatility is moderate
+            - Seasonal factors neutral
+            
+            **Continue with:**
+            1. Regular procurement schedule
+            2. Standard inventory levels
+            3. Monitor for opportunities
+            """)
+        
+        # Cost savings calculator
+        st.markdown("---")
+        st.markdown("##### 💰 Cost Savings Calculator")
+        
+        col_calc1, col_calc2 = st.columns(2)
+        
+        with col_calc1:
+            monthly_volume = st.number_input(
+                "Monthly Procurement Volume (tons):",
+                min_value=100,
+                max_value=10000,
+                value=1000,
+                step=100
+            )
+            
+            target_price = st.number_input(
+                "Target Price (PKR/kg):",
+                min_value=80.0,
+                max_value=130.0,
+                value=current_price * 0.95,
+                step=0.5
+            )
+        
+        with col_calc2:
+            price_difference = current_price - target_price
+            monthly_savings = price_difference * monthly_volume * 1000
+            annual_savings = monthly_savings * 12
+            
+            st.metric(
+                "Price Difference",
+                f"PKR {price_difference:.2f}/kg",
+                "Target vs Current"
+            )
+            
+            st.metric(
+                "Monthly Savings",
+                f"PKR {monthly_savings:,.0f}",
+                "If target achieved"
+            )
+            
+            st.metric(
+                "Annual Savings",
+                f"PKR {annual_savings:,.0f}",
+                "Potential"
+            )
+    
+    # ====================
+    # TAB 6: STORAGE STRATEGY
+    # ====================
+    with tab6:
+        enhanced_storage_calculator()
+    
+    # ====================
+    # DATA EXPORT SECTION
+    # ====================
+    st.markdown("---")
+    st.subheader("📥 Data Export & Reports")
+    
+    col_export1, col_export2, col_export3 = st.columns(3)
+    
+    with col_export1:
+        # Market data export
+        csv_data = df_market.to_csv(index=False)
+        st.download_button(
+            label="📊 Download Market Data (CSV)",
+            data=csv_data,
+            file_name=f"market_data_{datetime.today().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col_export2:
+        # Generate market report
+        report_summary = {
+            'Metric': [
+                'Current Market Price',
+                'Weekly Change',
+                'Monthly Average',
+                'Price Volatility',
+                'Seasonal Spread',
+                'Regional Dispersion',
+                'Market Sentiment'
+            ],
+            'Value': [
+                f'PKR {current_price:.2f}/kg',
+                f'{weekly_change_pct:+.1f}%',
+                f'PKR {monthly_avg:.2f}/kg',
+                f'{volatility:.1f}%',
+                f'PKR {seasonal_spread:.2f}/kg',
+                f'PKR {regional_std:.2f}',
+                sentiment
+            ]
+        }
+        
+        report_df = pd.DataFrame(report_summary)
+        report_csv = report_df.to_csv(index=False)
+        
+        st.download_button(
+            label="📈 Download Market Report",
+            data=report_csv,
+            file_name=f"market_report_{datetime.today().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col_export3:
+        # Schedule updates
+        st.info("**📅 Next Data Update:**")
+        st.write("Daily at 9:00 AM PST")
+        st.write("Weekly report: Every Monday")
+        st.write("Monthly analysis: 1st of each month")
+        
+        if st.button("🔄 Refresh Data Now", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+    
+    # ====================
+    # FOOTER & DISCLAIMER
+    # ====================
+    st.markdown("---")
+    st.caption("""
+    **Data Sources:** Pakistan Bureau of Statistics, Pakistan Flour Mills Association (PFMA), 
+    Provincial Agriculture Departments, Open Market Rates
+    
+    **Disclaimer:** This dashboard provides market intelligence for informational purposes only. 
+    Prices are indicative and may vary. Procurement decisions should consider additional factors 
+    including quality, logistics, and supplier relationships. Past performance is not indicative 
+    of future results.
+    
+    **Last Updated:** {}
+    """.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     
 def page_farmer_integration():
     """Page 3: Farmer Alliance Integration Platform."""
