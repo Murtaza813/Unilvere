@@ -1452,7 +1452,7 @@ def page_dashboard():
                     **Rationale:** Prices expected to remain stable
                     """)
     
-    # ====================
+        # ====================
     # TAB 4: RISK ALERTS
     # ====================
     with tab4:
@@ -1461,81 +1461,49 @@ def page_dashboard():
         with col_alerts:
             st.markdown("##### ⚠️ Active Market Alerts")
             
-            alerts = []
+            # Simple alerts display without widgets
+            today = datetime.now()
+            alerts_detected = False
             
-            # Price spike detection
-            for region in df_market['Region'].unique():
+            # Check for price spikes
+            for region in df_market['Region'].unique()[:3]:  # Limit to 3 regions
                 region_data = df_market[df_market['Region'] == region]
                 if len(region_data) >= 7:
                     current = region_data['Mandi_Price_PKR_per_Kg'].iloc[-1]
                     week_avg = region_data['Mandi_Price_PKR_per_Kg'].iloc[-7:].mean()
                     
-                    if current > week_avg * 1.08:  # 8% spike
-                        alerts.append({
-                            "type": "danger",
-                            "message": f"🚨 **{region}**: Price spike detected (+{((current-week_avg)/week_avg*100):.1f}%)",
-                            "time": "Just now"
-                        })
+                    if current > week_avg * 1.08:
+                        st.error(f"🚨 {region}: Price spike +{((current-week_avg)/week_avg*100):.1f}%")
+                        alerts_detected = True
             
-            # Volatility alert
-            if volatility > 12:
-                alerts.append({
-                    "type": "warning",
-                    "message": f"📊 High market volatility: {volatility:.1f}%",
-                    "time": "Today"
-                })
+            if not alerts_detected:
+                st.success("✅ No critical alerts detected")
             
-            # Seasonal alert
-            current_month = datetime.today().month
-            if current_month in [10, 11, 12] and current_price > lean_avg * 1.05:
-                alerts.append({
-                    "type": "info",
-                    "message": "🌾 Lean season premium above historical average",
-                    "time": "Seasonal"
-                })
-            
-            # Display alerts
-            if alerts:
-                for alert in alerts:
-                    if alert["type"] == "danger":
-                        st.error(alert["message"])
-                    elif alert["type"] == "warning":
-                        st.warning(alert["message"])
-                    else:
-                        st.info(alert["message"])
-                    st.caption(f"Last updated: {alert['time']}")
-            else:
-                st.success("✅ No critical alerts at this time")
-                st.info("Market conditions are stable. Continue with regular procurement strategy.")
-            
-            # Market events
             st.markdown("---")
-            st.markdown("##### 📅 Upcoming Market Events")
+            st.markdown("##### 📅 Market Events")
             
             events = [
-                {"Date": "2024-06-30", "Event": "Wheat Procurement Target Review", "Impact": "Medium"},
+                {"Date": "2024-06-30", "Event": "Wheat Procurement Review", "Impact": "Medium"},
                 {"Date": "2024-07-15", "Event": "PSMA Monthly Meeting", "Impact": "High"},
-                {"Date": "2024-07-31", "Event": "Government Buffer Stock Announcement", "Impact": "High"},
-                {"Date": "2024-08-15", "Event": "Monsoon Progress Report", "Impact": "Medium"},
             ]
             
             for event in events:
-                with st.expander(f"{event['Date']}: {event['Event']}"):
-                    st.write(f"**Expected Impact:** {event['Impact']}")
-                    if event['Impact'] == "High":
-                        st.write("**Action:** Prepare contingency plans")
+                st.write(f"**{event['Date']}:** {event['Event']}")
         
         with col_settings:
             st.markdown("##### 🔔 Alert Settings")
             
-            # Price alert configuration
+            # Use UNIQUE timestamp-based keys
+            timestamp = int(datetime.now().timestamp())
+            
+            # Price alert
             st.number_input(
                 "Alert when price crosses (PKR/kg):",
                 min_value=80.0,
                 max_value=130.0,
                 value=110.0,
                 step=0.5,
-                key="alert_price_threshold"
+                key=f"price_alert_{timestamp}"
             )
             
             # Volatility alert
@@ -1545,27 +1513,26 @@ def page_dashboard():
                 max_value=20,
                 value=10,
                 step=1,
-                key="alert_volatility_threshold"
+                key=f"vol_alert_{timestamp}"
             )
             
-            # Regional spread alert
+            # Regional spread alert - COMPLETELY NEW KEY
             st.slider(
                 "Alert when regional spread exceeds (PKR):",
                 min_value=2,
                 max_value=10,
                 value=5,
                 step=0.5,
-                key="alert_regional_spread_threshold"
+                key=f"regional_spread_alert_{today.strftime('%Y%m%d%H%M%S')}"
             )
             
-            # Notification preferences - NO KEYS
+            # Simple checkboxes
             st.markdown("##### 📱 Notifications")
-            email_alerts = st.checkbox("Email Alerts", value=True)
-            sms_alerts = st.checkbox("SMS Alerts", value=True)
-            whatsapp_alerts = st.checkbox("WhatsApp Alerts", value=True)
+            st.checkbox("Email Alerts", value=True, key=f"email_{timestamp}")
+            st.checkbox("SMS Alerts", value=True, key=f"sms_{timestamp}")
             
-            if st.button("💾 Save Alert Settings", use_container_width=True):
-                st.success("Alert settings saved!")
+            if st.button("💾 Save Settings", key=f"save_{timestamp}"):
+                st.success("Settings saved!")
     
     # ====================
     # TAB 5: PROCUREMENT INSIGHTS
