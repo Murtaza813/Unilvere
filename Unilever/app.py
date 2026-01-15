@@ -1202,7 +1202,7 @@ def page_dashboard():
             
             current_hour = datetime.now().hour
             if current_hour < 12:
-                st.success("**Morning Session:** Typically lower prices")
+                st.success("Typically lower prices")
             elif current_hour < 15:
                 st.info("**Mid-day:** Market stable")
             else:
